@@ -94,6 +94,21 @@ $('combat-speed').oninput=()=>{$('speed').value=$('combat-speed').value;$('speed
 $('pause').onclick=()=>{paused=!paused;accumulator=0;updateStats();};
 $('speed').oninput=()=>{$('speed-out').textContent=$('speed').value+'×';};
 document.addEventListener('visibilitychange',()=>{last=performance.now();accumulator=0;});
+let previousTroops=null;
+function updateBattleEvents(counts){
+ const feed=$('battle-events');
+ if(planning||sim.result){previousTroops=planning?null:counts.map(t=>[...t]);feed.replaceChildren();return;}
+ const now=performance.now();
+ for(const event of [...feed.children])if(now>=Number(event.dataset.expires))event.remove();
+ if(previousTroops)counts.forEach((types,team)=>types.forEach((count,type)=>{
+  if(count!==0||previousTroops[team][type]===0)return;
+  const event=document.createElement('div');event.className='battle-event';event.style.setProperty('--event-color',teamColor(team));event.dataset.expires=String(now+5000);
+  const icon=document.createElement('span');icon.className='event-icon';icon.textContent=['⬡','✂','▤'][type];
+  const text=document.createElement('span');text.textContent=teamName(team)+' hat '+['keinen Stein','keine Schere','kein Papier'][type]+' mehr!';
+  event.append(icon,text);feed.append(event);
+ }));
+ previousTroops=counts.map(t=>[...t]);
+}
 function updateStats() {
  const labels=teamLabels();$('red-heading').textContent=labels[0];$('opponent-heading').textContent=labels[1];
  $('opponent-setup').textContent=labels[1-ownTeam()]+' · obere Hälfte';$('opponent-setup').style.color=teamColor(1-ownTeam());
@@ -103,6 +118,7 @@ function updateStats() {
  $('pulse-status').title='Klick stößt beide Teams im Umkreis weg. 1,25 reale Sekunden Cooldown.';
   const c = [[0,0,0],[0,0,0]];
   for (const a of sim.agents) c[planning&&ownTeam()===1?1-a.team:a.team][Rival.TYPES.indexOf(a.type)]++;
+  updateBattleEvents(c);
   const totals = c.map(t => t.reduce((a,b) => a+b,0));
   if(!planning){
     $('combat-teams').replaceChildren();
