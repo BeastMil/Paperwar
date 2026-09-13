@@ -40,12 +40,12 @@ class Room {
     if(this.phase!=='battle'||!this.connected()||this.sim.result)return false;
     if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>WIDTH||y>HEIGHT)return false;
     this.sim.pulseReadyAt=this.cooldowns[seat];const applied=this.sim.pulse(x,y,now);
-    if(applied)this.cooldowns[seat]=now+1.25;return applied;
+    if(applied){this.cooldowns[seat]=now+1.25;this.sim.pulseWaves.at(-1).team=seat;}return applied;
   }
   snapshot(seat,now){
     const base={type:'state',phase:this.phase,round:this.round,connected:this.seats.map(s=>Boolean(s?.socket?.readyState===1)),ready:this.seats.map(s=>Boolean(s?.plan)),cooldown:Math.max(0,this.cooldowns[seat]-now)};
     if(this.phase!=='battle')return base;
-    const s=this.sim;return {...base,width:s.width,height:s.height,elapsed:s.elapsed,result:s.result,battlePhase:s.phase,conversions:s.conversions,agents:s.agents,waves:(s.pulseWaves||[]).filter(w=>now-w.createdAt<.9).map(w=>({x:w.x,y:w.y,radius:w.radius,age:now-w.createdAt}))};
+    const s=this.sim;return {...base,width:s.width,height:s.height,elapsed:s.elapsed,result:s.result,battlePhase:s.phase,conversions:s.conversions,agents:s.agents,waves:(s.pulseWaves||[]).filter(w=>now-w.createdAt<.9).map(w=>({x:w.x,y:w.y,radius:w.radius,team:w.team,age:now-w.createdAt}))};
   }
 }
 module.exports={Room,cleanPlan,createBattle};

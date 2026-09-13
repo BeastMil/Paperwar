@@ -26,7 +26,7 @@ npm start
 
 **Freund einladen** erstellt einen privaten Raum mit zwei Plätzen. Link teilen, verdeckt aufstellen, beide **Bereit für die Schlacht** klicken.
 
-Der Server berechnet den gemeinsamen Spielstand. Jeder sieht die eigene Armee unten als Rot und den Gegner als Blau. Beide erhalten 100 Truppen und einen getrennten Impuls-Cooldown. Im Mehrspieler gilt festes 1×-Tempo.
+Der Server berechnet den gemeinsamen Spielstand. Der Gastgeber bleibt für beide Rot, der Gast Blau. Jeder sieht seine eigene Armee unten; beim Gast ist das Feld um 180° gedreht. Impulswellen tragen die Farbe ihres Spielers. Eine deutliche Anzeige meldet, wenn der Gegner bereit ist. Beide erhalten 100 Truppen und einen getrennten Impuls-Cooldown. Im Mehrspieler gilt festes 1×-Tempo.
 
 Bei Verbindungsabbruch pausiert das Spiel; derselbe Browser-Tab versucht sich automatisch wieder zu verbinden. Nach etwa einer Minute wird der verlassene Platz freigegeben und die Aufstellung zurückgesetzt. **Zurück zur Aufstellung** setzt die Runde für beide zurück.
 

@@ -8,6 +8,9 @@ assert.throws(()=>cleanPlan(plan.map(g=>({...g,count:100}))));
 assert.throws(()=>cleanPlan(plan.map(g=>({...g,spacingX:1}))));
 const battle=createBattle([plan,plan]);assert.equal(battle.agents.length,200);
 assert(battle.agents.slice(0,100).every(a=>a.y>420));assert(battle.agents.slice(100).every(a=>a.y<380));
+const room=new Room();room.connect({readyState:1});room.connect({readyState:1});room.ready(0,plan);room.ready(1,plan);
+assert(room.pulse(0,700,400,10));assert(room.pulse(1,900,400,10));
+for(const seat of [0,1])assert.deepEqual(room.snapshot(seat,10).waves.map(w=>w.team),[0,1]);
 const server=spawn(process.execPath,['server.cjs'],{env:{...process.env,PORT:'0',HOST:'127.0.0.1'},stdio:['ignore','pipe','pipe']});
 const clients=[];
 function client(port){
