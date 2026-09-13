@@ -114,3 +114,14 @@ ground.agents[0].x=350;ground.step(.1);assert.equal(ground.agents[0].x,360);
 const cliff=new Simulation([[1,0,0],[0,1,0]],1000,800);cliff.terrain={forests:[],rocks:[{x:.5,y:.5,rx:.03,ry:.03}]};Object.assign(cliff.agents[0],{x:459,y:400,vx:65,vy:0});Object.assign(cliff.agents[1],{x:800,y:600,vx:0,vy:0});cliff.step(1/120);assert.equal(cliff.agents[0].vx,-65);assert(cliff.agents[0].x<459);
 const generated=require('./simulation.js').generateTerrain(random);assert.equal(generated.forests.length,3);assert(generated.rocks.every(r=>r.y-r.ry>.475&&r.y+r.ry<.525));
 console.log('Passed forest slowdown, normal speed on exit, cliff reflection, and rocks outside deployment zones.');
+// Each rank stays centered, including short ranks and rotated formations.
+for(const angle of [0,.6])for(const count of [1,4,8,12]){
+ const R=require('./simulation.js'),g={x:200,y:500,w:60,h:104,spacingX:10,angle,type:'rock',count};
+ const s=R.verticalFormation([g],[],count);
+ for(let row=0;row<Math.ceil(count/6);row++){
+  const rank=s.agents.slice(row*6,(row+1)*6),center=R.localPoint(g,g.w/2,13+row*26);
+  assert(Math.abs(rank.reduce((n,a)=>n+a.x,0)/rank.length-center.x)<1e-8);
+  assert(Math.abs(rank.reduce((n,a)=>n+a.y,0)/rank.length-center.y)<1e-8);
+ }
+}
+console.log('Passed centered full, partial and single-unit ranks in straight and rotated formations.');

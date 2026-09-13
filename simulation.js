@@ -150,8 +150,8 @@
       groups.forEach((g,index)=>{
         const cols=Math.floor(g.w/(g.spacingX||26)+1e-8),rows=Math.floor(g.h/26),count=Math.min(counts[index],capacity(g));
         for(let i=0;i<count;i++){
-          const col=i%cols,row=Math.floor(i/cols);
-          const p=localPoint(g,g.w/2+(col-(cols-1)/2)*(g.spacingX||26),team===0?13+row*26:g.h-13-row*26),angle=g.angle||0;
+          const col=i%cols,row=Math.floor(i/cols),rowCount=Math.min(cols,count-row*cols);
+          const p=localPoint(g,g.w/2+(col-(rowCount-1)/2)*(g.spacingX||26),team===0?13+row*26:g.h-13-row*26),angle=g.angle||0;
           sim.agents.push({team,type:g.type,...p,vx:(team===0?65:-65)*Math.sin(angle),vy:(team===0?-65:65)*Math.cos(angle),flash:0});
         }
       });
