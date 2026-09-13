@@ -28,7 +28,8 @@ wss.on('connection',(ws,req)=>{
    if(!room)throw Error('Bitte zuerst einem Raum beitreten.');room.updated=Date.now();
    if(msg.type==='ready')room.ready(seat,msg.groups);
    else if(msg.type==='unready'&&room.phase==='setup')room.seats[seat].plan=null;
-   else if(msg.type==='reset')room.reset();
+   else if(msg.type==='surrender')room.surrender(seat);
+   else if(msg.type==='reset')room.returnToSetup(seat);
    else if(msg.type==='pulse')room.pulse(seat,msg.x,msg.y,performance.now()/1000);
   }catch(error){send({type:'error',message:error.message||'Ungültige Anfrage.'});}
  });

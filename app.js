@@ -27,7 +27,7 @@ function renderSetup(){
  $('error').textContent=planning?Rival.validatePlan(groups,total):'';
  if(net.active){$('army-size').disabled=true;$('speed').disabled=true;$('combat-speed').disabled=true;$('battle').textContent=net.ready?'Bereitschaft zurücknehmen':'Bereit für die Schlacht';$('battle').disabled=!planning||!net.joined;for(const id of ['troop-type','troop-count','place-front'])$(id).disabled=!planning||net.ready;for(const b of $('squad-list').children)b.disabled=!planning||net.ready;}
 }
-function prepare(){if(net.active&&!networkApplying){net.send({type:'reset'});return;}planning=true;paused=false;gesture=null;accumulator=0;$('result').hidden=true;rebuild();}
+function prepare(){if(net.active&&!networkApplying){net.send({type:!planning&&!sim.result?'surrender':'reset'});return;}planning=true;paused=false;gesture=null;accumulator=0;$('result').hidden=true;rebuild();}
 function startBattle(e){e.preventDefault();if(!planning)return;const error=Rival.validatePlan(groups,total);if(error){$('error').textContent=error;return;}if(net.active){if(net.ready){net.send({type:'unready'});return;}sessionStorage.setItem('rival-plan-'+net.room,JSON.stringify(groups));net.send({type:'ready',groups});return;}computer=Rival.computerPlan();compact(computer);sim=Rival.verticalFormation(groups,computer,total);Rival.fitBattle(sim,canvas.clientWidth/canvas.clientHeight);planning=false;paused=false;accumulator=0;last=performance.now();renderSetup();updateStats();}
 function point(e){const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(600,(e.clientX-r.left)*600/r.width)),y:Math.max(420,Math.min(800,(e.clientY-r.top)*800/r.height))};}
 function followCursor(e){cursorInside=true;$('impulse-cursor').style.left=e.clientX+'px';$('impulse-cursor').style.top=e.clientY+'px';}
@@ -131,11 +131,13 @@ function updateStats() {
   $('pause').disabled = net.active || planning || Boolean(sim.result);
   $('status').textContent = planning ? 'Aufstellung · Drei Geschwader frei platzieren' : sim.result ? 'Runde beendet' : paused ? 'Simulation pausiert' : sim.phase === 'march' ? 'Vormarsch · Fronten nähern sich' : 'Chaos · Jeder Kontakt zählt';
   $('status-dot').style.background = paused || sim.result ? '#899180' : '#d0ed8a';
+  if(net.active){const waiting=Boolean(net.rematch?.[net.seat]);$('return-plan').textContent=sim.result?(waiting?'Warte auf den Gegner …':'↶ Zurück zur Aufstellung'):'⚑ Aufgeben';$('return-plan').disabled=waiting;$('again').textContent=waiting?'Warte auf den Gegner …':'Zurück zur Aufstellung';$('again').disabled=waiting;}
   if (sim.result) {
     $('result').hidden = false;
-    $('result-title').textContent = sim.result === 'draw' ? 'Unentschieden.' : `Team ${sim.result === 'red' ? 'Rot' : 'Blau'} gewinnt.`;
+    const won=sim.result===(ownTeam()===0?'red':'blue');
+    $('result-title').textContent = sim.result === 'draw' ? 'Unentschieden.' : net.active?(won?'You Won':'You Lose'):`Team ${sim.result === 'red' ? 'Rot' : 'Blau'} gewinnt.`;
     $('result-title').style.color = sim.result === 'draw' ? '#d0ed8a' : sim.result === 'red' ? '#f27f76' : '#78b1ff';
-    $('result-detail').textContent = sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
+    $('result-detail').textContent = net.active?(sim.surrenderedBy!==undefined?(sim.surrenderedBy===ownTeam()?'Du hast aufgegeben.':'Dein Gegner hat aufgegeben.'):(sim.result==='draw'?'Keine Übernahme mehr möglich.':won?'Du hast die Schlacht gewonnen.':'Du hast die Schlacht verloren.'))+' '+(net.rematch?.[1-net.seat]?'Dein Gegner möchte neu aufstellen.':'Zur Aufstellung geht es weiter, sobald beide bereit sind.') : sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
   }
 }
 
@@ -203,14 +205,15 @@ function frame(now){const dt=Math.min((now-last)/1000,.1);last=now;if(!net.activ
 networkApplying=true;prepare();networkApplying=false;
 $('invite').onclick=async()=>{try{if(net.active)await net.share();else await net.create();}catch(e){$('room-status').textContent=e.message;}};
 if(net.active){
- $('opponent-heading').textContent='Freund · Blau';$('opponent-setup').textContent='Freund · obere Hälfte';$('opponent-hint').textContent='Die Aufstellung deines Freundes bleibt bis zum gemeinsamen Start verborgen. Zurück zur Aufstellung startet die Planung für beide neu.';
+ $('opponent-heading').textContent='Freund · Blau';$('opponent-setup').textContent='Freund · obere Hälfte';$('opponent-hint').textContent='Die Aufstellung deines Freundes bleibt bis zum gemeinsamen Start verborgen. Aufgeben beendet die Schlacht als Niederlage. Danach wechseln beide gemeinsam zurück zur Aufstellung.';
  $('invite').textContent='Einladungslink kopieren';$('room-link').hidden=false;$('room-link').value=location.origin+'/?room='+encodeURIComponent(net.room);$('solo-link').hidden=false;
  const saved=sessionStorage.getItem('rival-plan-'+net.room);if(saved){try{const plan=JSON.parse(saved);if(Array.isArray(plan)&&plan.length===3&&!Rival.validatePlan(plan,100)){groups=plan;rebuild();}}catch{}}
  net.onChange=message=>{$('room-status').textContent=message;if(!net.connected&&!planning)paused=true;renderSetup();};
  net.onState=message=>{
+  net.rematch=message.rematch;
   const notice=$('ready-notice');notice.hidden=message.phase!=='setup';notice.classList.toggle('opponent-ready',Boolean(message.ready[1-net.seat]));notice.style.setProperty('--opponent-color',teamColor(1-ownTeam()));
   notice.textContent=!net.peer?'Gegner noch nicht verbunden':message.ready[1-net.seat]?'✓ Gegner ist bereit!'+(net.ready?'':' Stelle deine Truppen auf und bestätige deine Bereitschaft.'):'Gegner stellt seine Truppen auf …';
-  $('room-status').textContent='Du bist '+teamName(ownTeam())+' · '+(message.phase==='battle'?(!message.connected.every(Boolean)?'Verbindung unterbrochen · Schlacht pausiert':'Gemeinsame Schlacht · 100 Truppen je Spieler'):!net.peer?'Warte auf deinen Freund …':net.ready?'Du bist bereit · warte auf deinen Freund':message.ready[1-net.seat]?'Dein Freund ist bereit. Stelle deine Truppen auf.':'Beide verbunden · stellt eure Truppen auf.');
+  $('room-status').textContent='Du bist '+teamName(ownTeam())+' · '+(message.phase==='battle'?(message.result?'Runde beendet':!message.connected.every(Boolean)?'Verbindung unterbrochen · Schlacht pausiert':'Gemeinsame Schlacht · 100 Truppen je Spieler'):!net.peer?'Warte auf deinen Freund …':net.ready?'Du bist bereit · warte auf deinen Freund':message.ready[1-net.seat]?'Dein Freund ist bereit. Stelle deine Truppen auf.':'Beide verbunden · stellt eure Truppen auf.');
   if(message.phase==='setup'){
    if(!planning){networkApplying=true;prepare();networkApplying=false;}
    const signature=JSON.stringify([message.ready,message.connected]);if(signature!==networkSignature){renderSetup();networkSignature=signature;}return;
@@ -219,7 +222,7 @@ if(net.active){
   const localNow=performance.now()/1000;
   const flip=a=>net.seat?{...a,x:message.width-a.x,y:message.height-a.y,vx:-a.vx,vy:-a.vy}:a;
   sim.width=message.width;sim.height=message.height;sim.agents=message.agents.map(flip);if(first||!net.displayAgents||net.displayAgents.length!==sim.agents.length)net.displayAgents=sim.agents.map(a=>({...a}));sim.elapsed=message.elapsed;sim.phase=message.battlePhase;sim.conversions=message.conversions;
-  sim.result=message.result;
+  sim.result=message.result;sim.surrenderedBy=message.surrenderedBy;net.rematch=message.rematch;
   sim.pulseReadyAt=localNow+message.cooldown;sim.pulseWaves=message.waves.map(w=>({...w,x:net.seat?message.width-w.x:w.x,y:net.seat?message.height-w.y:w.y,createdAt:localNow-w.age}));
   if(first){$('result').hidden=true;renderSetup();}updateStats();
  };

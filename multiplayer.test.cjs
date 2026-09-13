@@ -11,6 +11,7 @@ assert(battle.agents.slice(0,100).every(a=>a.y>420));assert(battle.agents.slice(
 const room=new Room();room.connect({readyState:1});room.connect({readyState:1});room.ready(0,plan);room.ready(1,plan);
 assert(room.pulse(0,700,400,10));assert(room.pulse(1,900,400,10));
 for(const seat of [0,1])assert.deepEqual(room.snapshot(seat,10).waves.map(w=>w.team),[0,1]);
+assert(room.surrender(0));assert.equal(room.sim.result,'blue');assert.equal(room.surrender(1),false);assert.equal(room.pulse(1,900,400,12),false);
 const server=spawn(process.execPath,['server.cjs'],{env:{...process.env,PORT:'0',HOST:'127.0.0.1'},stdio:['ignore','pipe','pipe']});
 const clients=[];
 function client(port){
@@ -32,6 +33,9 @@ function client(port){
  const independent=b.next(m=>m.type==='state');assert.equal((await independent).cooldown,0);
  const disconnected=a.next(m=>m.type==='state'&&!m.connected[1]);b.close();const frozen=await disconnected;const still=a.next(m=>m.type==='state'&&!m.connected[1]);assert.equal((await still).elapsed,frozen.elapsed);
  const back=client(port);await new Promise(resolve=>back.once('open',resolve));const rejoin=back.next(m=>m.type==='joined');back.send(JSON.stringify({type:'join',room:id,token:guest.token}));assert.equal((await rejoin).seat,1);
- const reset=a.next(m=>m.type==='state'&&m.phase==='setup');back.send(JSON.stringify({type:'reset'}));assert.equal((await reset).agents,undefined);
+ const lost=a.next(m=>m.type==='state'&&m.result==='red');back.send(JSON.stringify({type:'reset'}));const ended=await lost;assert.equal(ended.surrenderedBy,1);
+ const frozenResult=a.next(m=>m.type==='state'&&m.result==='red');back.send(JSON.stringify({type:'surrender'}));assert.equal((await frozenResult).elapsed,ended.elapsed);
+ const waiting=a.next(m=>m.type==='state'&&m.rematch[1]);back.send(JSON.stringify({type:'reset'}));assert.equal((await waiting).phase,'battle');
+ const reset=a.next(m=>m.type==='state'&&m.phase==='setup');a.send(JSON.stringify({type:'reset'}));assert.equal((await reset).agents,undefined);
  console.log('Multiplayer passed: validation, 2 seats, private setup, authoritative battle, separate cooldowns, disconnect pause, reconnect, reset.');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{for(const ws of clients)ws.terminate();server.kill();});
