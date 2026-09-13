@@ -69,3 +69,16 @@ assert.equal(historyRoom.snapshot(0,0).history,undefined);historyRoom.surrender(
 assert.equal(historyRoom.snapshot(0,0).history[0].time,0);assert.equal(historyRoom.snapshot(0,0).history.at(-1).time,historyRoom.sim.elapsed);
 assert.deepEqual(historyRoom.snapshot(0,0).history,historyRoom.snapshot(1,0).history);
 console.log('Passed identical complete result history for both multiplayer seats, including surrender.');
+const seriesRoom=new Room();seriesRoom.connect({readyState:1});seriesRoom.connect({readyState:1});
+seriesRoom.ready(0,plan);seriesRoom.ready(1,plan);seriesRoom.surrender(1);
+for(let i=0;i<5;i++)assert.deepEqual(seriesRoom.snapshot(i%2,0).score,{wins:[1,0],draws:0});
+seriesRoom.returnToSetup(0);assert.equal(seriesRoom.phase,'battle');seriesRoom.returnToSetup(1);
+assert.equal(seriesRoom.phase,'setup');assert.deepEqual(seriesRoom.snapshot(0,0).score.wins,[1,0]);
+seriesRoom.ready(0,plan);seriesRoom.ready(1,plan);seriesRoom.sim.result='blue';
+assert.deepEqual(seriesRoom.snapshot(0,0).score.wins,[1,1]);seriesRoom.reset();
+seriesRoom.ready(0,plan);seriesRoom.ready(1,plan);seriesRoom.sim.result='draw';seriesRoom.reset();
+assert.deepEqual(seriesRoom.snapshot(1,0).score,{wins:[1,1],draws:1});
+const reconnectToken=seriesRoom.seats[1].token;seriesRoom.seats[1].socket=null;seriesRoom.connect({readyState:1},reconnectToken);
+assert.deepEqual(seriesRoom.snapshot(1,0).score,{wins:[1,1],draws:1});
+assert.deepEqual(new Room().score,{wins:[0,0],draws:0});
+console.log('Passed rematch series scores: wins, surrender, draws, no duplicate counting, joint rematch, reconnect persistence and independent rooms.');

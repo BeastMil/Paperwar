@@ -4,6 +4,7 @@ const net=window.Multiplayer;
 document.body.classList.add('planning');
 $('combat-tempo').hidden=net.active;
 let timelineKey='',battleCountdown=0;
+let matchScore={wins:[0,0],draws:0},scoredSimulation=null;
 let cursorInside=false,networkApplying=false,networkSignature='';
 const ownTeam=()=>net.active?net.seat:0, teamColor=t=>t===0?'#f27f76':'#78b1ff', teamName=t=>t===0?'Rot':'Blau';
 const teamLabels=()=>[0,1].map(t=>(t===ownTeam()?'Du':net.active?'Freund':'PC')+' · '+teamName(t));
@@ -165,6 +166,16 @@ function renderHistory(){
  $('history-chart').replaceChildren(svg);
 }
 function updateStats() {
+ if(!net.active&&!planning&&sim.result&&scoredSimulation!==sim){
+  if(sim.result==='draw')matchScore.draws++;else matchScore.wins[sim.result==='red'?0:1]++;
+  scoredSimulation=sim;
+ }
+ for(const prefix of ['series','result-series']){
+  $(prefix+'-red').textContent='Rot '+matchScore.wins[0];
+  $(prefix+'-blue').textContent=matchScore.wins[1]+' Blau';
+  $(prefix+'-draws').textContent=matchScore.draws?matchScore.draws+' unentschieden':'';
+ }
+
  const labels=teamLabels();$('red-heading').textContent=labels[0];$('opponent-heading').textContent=labels[1];
  $('opponent-setup').textContent=labels[1-ownTeam()]+' · obere Hälfte';$('opponent-setup').style.color=teamColor(1-ownTeam());
  const cooldown=Math.max(0,(sim.pulseReadyAt||0)-performance.now()/1000);
@@ -203,14 +214,14 @@ function updateStats() {
   $('pause').disabled = net.active || planning || Boolean(sim.result);
   $('status').textContent = planning ? 'Aufstellung · Drei Geschwader frei platzieren' : sim.result ? 'Runde beendet' : battleCountdown > 0 ? 'Schlacht startet in '+Math.ceil(battleCountdown)+' …' : paused ? 'Simulation pausiert' : sim.phase === 'march' ? 'Vormarsch · Fronten nähern sich' : 'Chaos · Jeder Kontakt zählt';
   $('status-dot').style.background = paused || sim.result ? '#899180' : '#d0ed8a';
-  if(!net.active)$('return-plan').textContent=sim.result?'↶ Zurück zur Aufstellung':'⚑ Aufgeben';
-  if(net.active){const waiting=Boolean(net.rematch?.[net.seat]);$('return-plan').textContent=sim.result?(waiting?'Warte auf den Gegner …':'↶ Zurück zur Aufstellung'):'⚑ Aufgeben';$('return-plan').disabled=waiting;$('again').textContent=waiting?'Warte auf den Gegner …':'Zurück zur Aufstellung';$('again').disabled=waiting;}
+  if(!net.active){$('return-plan').textContent=sim.result?'↻ Revanche':'⚑ Aufgeben';$('again').textContent='Revanche · neu aufstellen ↗';}
+  if(net.active){const waiting=Boolean(net.rematch?.[net.seat]);$('return-plan').textContent=sim.result?(waiting?'Warte auf den Gegner …':'↻ Revanche'):'⚑ Aufgeben';$('return-plan').disabled=waiting;$('again').textContent=waiting?'Revanche angefragt …':'Revanche · neu aufstellen ↗';$('again').disabled=waiting;}
   if (sim.result) {
     $('result').hidden = false;renderHistory();
     const won=sim.result===(ownTeam()===0?'red':'blue');
     $('result-title').textContent = sim.result === 'draw' ? 'Unentschieden.' : sim.surrenderedBy===ownTeam()?'You Lose':net.active?(won?'You Won':'You Lose'):`Team ${sim.result === 'red' ? 'Rot' : 'Blau'} gewinnt.`;
     $('result-title').style.color = sim.result === 'draw' ? '#d0ed8a' : sim.result === 'red' ? '#f27f76' : '#78b1ff';
-    $('result-detail').textContent = !net.active&&sim.surrenderedBy===0?'Du hast aufgegeben.':net.active?(sim.surrenderedBy!==undefined?(sim.surrenderedBy===ownTeam()?'Du hast aufgegeben.':'Dein Gegner hat aufgegeben.'):(sim.result==='draw'?'Keine Übernahme mehr möglich.':won?'Du hast die Schlacht gewonnen.':'Du hast die Schlacht verloren.'))+' '+(net.rematch?.[1-net.seat]?'Dein Gegner möchte neu aufstellen.':'Zur Aufstellung geht es weiter, sobald beide bereit sind.') : sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
+    $('result-detail').textContent = !net.active&&sim.surrenderedBy===0?'Du hast aufgegeben.':net.active?(sim.surrenderedBy!==undefined?(sim.surrenderedBy===ownTeam()?'Du hast aufgegeben.':'Dein Gegner hat aufgegeben.'):(sim.result==='draw'?'Keine Übernahme mehr möglich.':won?'Du hast die Schlacht gewonnen.':'Du hast die Schlacht verloren.'))+' '+(net.rematch?.[1-net.seat]?'Dein Gegner möchte eine Revanche.':'Die Revanche beginnt mit neuer Aufstellung, sobald beide zustimmen.') : sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
   }
 }
 
@@ -303,6 +314,7 @@ if(net.active){
  net.onChange=message=>{$('room-status').textContent=message;if(!net.connected&&!planning)paused=true;renderSetup();};
  net.onState=message=>{
   net.rematch=message.rematch;
+  if(message.score)matchScore=message.score;
   net.settingsLocked=Boolean(message.settingsLocked);
   if(message.settings){
    $('speed').value=message.settings.speed;$('speed-out').textContent=message.settings.speed+'×';

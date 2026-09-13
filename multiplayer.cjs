@@ -25,7 +25,7 @@ function createBattle(plans,total=TOTAL){
   return sim;
 }
 class Room {
-  constructor(){this.id=randomBytes(9).toString('base64url');this.seats=[null,null];this.phase='setup';this.sim=null;this.updated=Date.now();this.cooldowns=[0,0];this.round=0;this.rematch=[false,false];this.settings={total:100,speed:1};this.settingsLocked=false;this.stepAccumulator=0;this.countdown=0;}
+  constructor(){this.id=randomBytes(9).toString('base64url');this.seats=[null,null];this.phase='setup';this.sim=null;this.updated=Date.now();this.cooldowns=[0,0];this.round=0;this.score={wins:[0,0],draws:0};this.scoredRound=0;this.rematch=[false,false];this.settings={total:100,speed:1};this.settingsLocked=false;this.stepAccumulator=0;this.countdown=0;}
   connect(socket,token){
     let seat=this.seats.findIndex(s=>s&&s.token===token);
     if(seat<0){seat=this.seats.findIndex(s=>!s);if(seat<0)throw Error('Dieser Raum ist bereits voll.');this.seats[seat]={token:randomBytes(24).toString('base64url'),socket:null,plan:null};}
@@ -44,9 +44,15 @@ class Room {
     if(this.phase!=='battle'||this.sim.result||this.countdown<=0)return;
     this.countdown=this.connected()?Math.max(0,this.countdown-dt):3;
   }
-  surrender(seat){if(this.phase!=='battle'||this.sim.result)return false;this.sim.result=seat===0?'blue':'red';this.sim.surrenderedBy=seat;this.sim.recordHistory(true);return true;}
+  recordResult(){
+    if(!this.sim?.result||this.scoredRound===this.round)return;
+    if(this.sim.result==='draw')this.score.draws++;
+    else this.score.wins[this.sim.result==='red'?0:1]++;
+    this.scoredRound=this.round;
+  }
+  surrender(seat){if(this.phase!=='battle'||this.sim.result)return false;this.sim.result=seat===0?'blue':'red';this.sim.surrenderedBy=seat;this.sim.recordHistory(true);this.recordResult();return true;}
   returnToSetup(seat){if(this.phase!=='battle')return;if(!this.sim.result){this.surrender(seat);return;}this.rematch[seat]=true;if(this.rematch.every(Boolean))this.reset();}
-  reset(){this.rematch=[false,false];this.phase='setup';this.sim=null;this.countdown=0;for(const s of this.seats)if(s)s.plan=null;this.updated=Date.now();}
+  reset(){this.recordResult();this.rematch=[false,false];this.phase='setup';this.sim=null;this.countdown=0;for(const s of this.seats)if(s)s.plan=null;this.updated=Date.now();}
   connected(){return this.seats.every(s=>s?.socket?.readyState===1);}
   pulse(seat,x,y,now){
     if(this.phase!=='battle'||this.countdown>0||!this.connected()||this.sim.result)return false;
@@ -55,7 +61,8 @@ class Room {
     if(applied){this.cooldowns[seat]=now+1.25;this.sim.pulseWaves.at(-1).team=seat;}return applied;
   }
   snapshot(seat,now){
-    const base={type:'state',countdown:this.countdown,settings:this.settings,settingsLocked:this.settingsLocked,phase:this.phase,round:this.round,rematch:this.rematch,connected:this.seats.map(s=>Boolean(s?.socket?.readyState===1)),ready:this.seats.map(s=>Boolean(s?.plan)),cooldown:Math.max(0,this.cooldowns[seat]-now)};
+    this.recordResult();
+    const base={type:'state',score:{wins:[...this.score.wins],draws:this.score.draws},countdown:this.countdown,settings:this.settings,settingsLocked:this.settingsLocked,phase:this.phase,round:this.round,rematch:this.rematch,connected:this.seats.map(s=>Boolean(s?.socket?.readyState===1)),ready:this.seats.map(s=>Boolean(s?.plan)),cooldown:Math.max(0,this.cooldowns[seat]-now)};
     if(this.phase!=='battle')return base;
     const s=this.sim;return {...base,width:s.width,height:s.height,elapsed:s.elapsed,history:s.result?s.history:undefined,deathEvents:s.result?s.deathEvents:undefined,result:s.result,surrenderedBy:s.surrenderedBy,battlePhase:s.phase,conversions:s.conversions,agents:s.agents,waves:(s.pulseWaves||[]).filter(w=>now-w.createdAt<.9).map(w=>({x:w.x,y:w.y,radius:w.radius,team:w.team,age:now-w.createdAt}))};
   }
