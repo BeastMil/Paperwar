@@ -192,6 +192,10 @@
     return {...group,w:Math.max(26,length)/ratio,h:Math.ceil(group.count/cols)*26,x:start.x,y:start.y,angle:Math.atan2(dy,dx)};
   }
 
+  function battleViewport(width,height){
+    const scale=Math.max(1e-6,Math.min(width/1600,height/800));
+    return {scale,left:(width-1600*scale)/2,top:(height-800*scale)/2};
+  }
   function fitBattle(sim,aspect){
     const width=sim.height*aspect,ratio=width/sim.width;
     for(const a of sim.agents)a.x*=ratio;
@@ -204,7 +208,7 @@
     const patches=Array.from({length:40},()=>({x:random(),y:random(),rx:.03+random()*.13,ry:.03+random()*.12,light:random()>.5}));
     return {forests,rocks,trees,patches};
   }
-  const api = {Simulation, generateTerrain, formation, verticalFormation, fitBattle, frontFormation, localPoint, corners, inZone, contains, computerPlan, allocate, capacity, overlaps, validatePlan, convert, outcome, TYPES};
+  const api = {Simulation, generateTerrain, formation, verticalFormation, battleViewport, fitBattle, frontFormation, localPoint, corners, inZone, contains, computerPlan, allocate, capacity, overlaps, validatePlan, convert, outcome, TYPES};
   if (typeof module !== 'undefined') module.exports = api;
   else root.Rival = api;
 })(typeof window !== 'undefined' ? window : this);

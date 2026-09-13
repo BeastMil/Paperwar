@@ -149,3 +149,25 @@ assert.deepEqual(extinct.deathEvents.map(e=>[e.team,e.type,e.time]),[[0,'rock',.
 extinct.recordHistory(true);assert.equal(extinct.deathEvents.length,2);
 for(let i=1;i<2000;i++){extinct.elapsed=i;extinct.recordHistory();}assert.equal(extinct.deathEvents[0].time,.125);assert.equal(extinct.deathEvents.length,2);
 console.log('Passed exact extinction markers: simultaneous losses, no duplicates, event samples and persistence after history reduction.');
+
+// Resolution changes must only affect the camera, never troop geometry.
+const {battleViewport}=require('./simulation.js');
+for(const [width,height] of [[390,590],[768,820],[1280,470],[1920,850],[3440,1100],[800,320]]){
+ const v=battleViewport(width,height);
+ assert.ok(v.left>=-1e-8&&v.top>=-1e-8);
+ assert.ok(v.left+1600*v.scale<=width+1e-8&&v.top+800*v.scale<=height+1e-8);
+ for(const [x,y] of [[0,0],[1600,800],[811,537]]){
+  assert.ok(Math.abs((v.left+x*v.scale-v.left)/v.scale-x)<1e-8);
+  assert.ok(Math.abs((v.top+y*v.scale-v.top)/v.scale-y)<1e-8);
+ }
+ const g={x:220,y:500,w:58.5,h:156,spacingX:9.75,angle:.3,type:'rock',count:33};
+ const plan=require('./simulation.js').verticalFormation([g],[],33);
+ const before=plan.agents.map(a=>({x:v.left+a.x*1600/600*v.scale,y:v.top+a.y*v.scale}));
+ require('./simulation.js').fitBattle(plan,2);
+ plan.agents.forEach((a,i)=>{
+  assert.ok(Math.abs(before[i].x-(v.left+a.x*v.scale))<1e-8);
+  assert.ok(Math.abs(before[i].y-(v.top+a.y*v.scale))<1e-8);
+ });
+ assert.ok(Math.abs(Math.hypot((plan.agents[1].x-plan.agents[0].x)*v.scale,(plan.agents[1].y-plan.agents[0].y)*v.scale)-26*v.scale)<1e-8);
+}
+console.log('Passed six viewport sizes: proportional camera, coordinate round trips, rotated formation spacing and identical setup/battle positions.');

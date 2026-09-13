@@ -38,8 +38,9 @@ wss.on('connection',(ws,req)=>{
 });
 let last=performance.now(),acc=0,lastBroadcast=0;
 const timer=setInterval(()=>{
- const now=performance.now();acc+=Math.min((now-last)/1000,.1)*.5;last=now;
- while(acc>=1/120){for(const r of rooms.values())if(r.phase==='battle'&&r.connected()&&!r.sim.result){r.stepAccumulator+=r.settings.speed/120;while(r.stepAccumulator>=1/120&&!r.sim.result){r.sim.step(1/120);r.stepAccumulator-=1/120;}}acc-=1/120;}
+ const now=performance.now(),dt=Math.min((now-last)/1000,.1);acc+=dt*.5;last=now;
+ for(const r of rooms.values())r.advanceCountdown(dt);
+ while(acc>=1/120){for(const r of rooms.values())if(r.phase==='battle'&&r.connected()&&r.countdown<=0&&!r.sim.result){r.stepAccumulator+=r.settings.speed/120;while(r.stepAccumulator>=1/120&&!r.sim.result){r.sim.step(1/120);r.stepAccumulator-=1/120;}}acc-=1/120;}
  if(now-lastBroadcast<50)return;lastBroadcast=now;
  for(const r of rooms.values())for(let seat=0;seat<2;seat++){const ws=r.seats[seat]?.socket;if(ws?.readyState===1&&ws.bufferedAmount<200000)ws.send(JSON.stringify(r.snapshot(seat,now/1000)));}
 },1000/60);

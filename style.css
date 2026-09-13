@@ -30,3 +30,8 @@ body.planning .workspace{grid-template-columns:minmax(0,1fr)}#setup-panel{positi
 #result-history{width:min(600px,90%);margin:18px 0 0}#result-history h3{font-size:12px;color:#e0e9d9;margin:0 0 6px}#history-chart svg{display:block;width:100%;max-height:190px}.result .history-caption{font-size:10px;margin:8px 0}.result{overflow:auto}.result> *{flex-shrink:0}@media(max-width:740px){#result-history{width:100%;margin-top:10px}.result h2{font-size:26px}}
 
 #history-chart svg{shape-rendering:geometricPrecision;text-rendering:optimizeLegibility}#history-chart svg path{stroke-linecap:round;stroke-linejoin:round}
+
+@media(max-width:740px){#squad-list .squad-row{font-size:10px;padding:4px}.setup-center{max-width:calc(100% - 16px)}}
+@media(min-width:741px) and (max-height:600px){body{height:auto;overflow:auto}main{height:auto;min-height:calc(100dvh - 48px)}.arena,.planning .arena{flex:none;height:340px!important;min-height:340px}.workspace{height:auto}.settings{overflow:visible}}
+
+#battle-countdown{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#10171366;pointer-events:none}#countdown-label{font-size:14px;font-weight:700;color:#edf0e4;text-shadow:0 2px 8px #000}#countdown-number{font-size:clamp(64px,12vh,110px);font-variant-numeric:tabular-nums;line-height:1;color:var(--lime);text-shadow:0 4px 24px #0008}
