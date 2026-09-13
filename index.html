@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rival — Schere, Stein, Papier</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><a class="brand" href="./"><span class="brand-mark">↗</span> rival<span class="brand-dot">.</span></a><span class="header-label">SCHERE. STEIN. PAPIER.</span><span class="prototype">INTERAKTIVER PROTOTYP <i></i></span></header>
+<main>
+
+  <section class="intro"><div><p class="eyebrow">DEINE FORMATION. DEINE TAKTIK.</p><h1>Dein Plan. Ihre Schlacht.</h1><p class="subtitle">Truppen aufstellen. Fronten treffen lassen. Chaos entfesseln.</p></div><div class="rule-strip"><span>✂<small>Schere</small></span><b>→</b><span>▤<small>Papier</small></span><b>→</b><span>⬡<small>Stein</small></span><b>→</b><span>✂<small>Schere</small></span><p>schlägt</p></div></section>
+  <div class="multiplayer-bar"><button id="invite" type="button">Freund einladen</button><input id="room-link" aria-label="Einladungslink" readonly hidden><span id="room-status" role="status">Einzelspiel gegen PC</span><a id="solo-link" href="/" hidden>Zum Einzelspiel</a></div><div class="workspace">
+    <aside id="setup-panel" class="panel settings">
+      <div class="panel-heading"><h2>Schlachtplan</h2><span>01 / AUFSTELLEN</span></div>
+      <p class="hint">Geschwader wählen und Frontmodus einschalten. Jeder Ziehvorgang setzt seine Front neu – der Modus bleibt aktiv. Ziehrichtung bestimmt Front und Drehung; der Pfeil zeigt den Vormarsch. Die Reihen stehen rechts der gezogenen Linie, die Truppen marschieren nach links von ihr. Zum Verschieben den Frontmodus ausschalten.</p>
+      <form id="settings">
+        <label class="field-label" for="army-size">Deine Gesamttruppenstärke</label><input id="army-size" type="number" min="10" max="150" step="1" value="100" required>
+        <div class="field-label">Verteilt <output id="army-total"></output></div><div id="squad-list"></div>
+        <p class="hint" id="reserve"></p>
+        <div class="divider"></div><p class="eyebrow" id="selected-lane">GESCHWADER</p>
+        <label class="field-label" for="troop-type">Truppentyp</label><select id="troop-type"><option value="rock">⬡ Stein</option><option value="scissors">✂ Schere</option><option value="paper">▤ Papier</option></select>
+        <label class="field-label" for="troop-count">Anteil der Gesamttruppen (%)</label><input id="troop-count" type="range" min="1" max="100" step="1" value="34">
+        <p class="hint" id="actual-count"></p><button id="place-front" type="button" class="secondary">↔ Frontmodus einschalten</button>
+        
+        <div class="divider"></div><p id="opponent-setup" class="field-label blue-text">PC · obere Hälfte</p><p class="hint">Im Gefecht: Klicken stößt nahe Truppen beider Teams weg. 1,25 reale Sekunden Cooldown, unabhängig vom Tempo. Während Pause ist der Impuls gesperrt.</p><p id="opponent-hint" class="hint">Verborgene Zufallsaufstellung, gleiche Gesamtstärke wie du. Wird erst beim Schlachtstart sichtbar.</p>
+        <div class="divider"></div><label class="field-label" for="speed">Simulationstempo <output id="speed-out">1×</output></label><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><div class="range-labels"><span>Gemütlich</span><span>Turbulent</span></div>
+        <p id="error" role="alert"></p><button class="primary" id="battle" type="submit">⚔ Schlacht starten</button><button id="reset" class="secondary" type="button">↶ Zurück zur Aufstellung</button>
+      </form>
+    </aside>
+    <aside id="combat-panel" class="panel settings combat-panel" hidden>
+      <div class="panel-heading"><h2>Die Schlacht</h2><span>LIVE</span></div>
+
+      <div id="combat-teams"></div>
+      <div class="combat-summary"><span>Übernahmen</span><strong id="combat-conversions">0</strong></div>
+      <label class="field-label" for="combat-speed">Tempo <output id="combat-speed-out">1×</output></label><input id="combat-speed" type="range" min="0.25" max="3" step="0.25" value="1">
+      <button id="return-plan" class="secondary" type="button">↶ Zurück zur Aufstellung</button>
+    </aside>
+    <section class="simulation">
+      <div class="arena-toolbar"><div class="status"><i id="status-dot"></i><span id="status">Simulation läuft</span></div><div class="toolbar-right"><span id="pulse-status" class="pulse-status">Impuls · im Gefecht</span><span id="time">00:00</span><button id="pause" aria-label="Simulation pausieren">Ⅱ Pause</button></div></div>
+      <div class="arena"><canvas id="arena" aria-label="Simulation mit roten und blauen Stein-, Schere- und Papier-Agenten"></canvas><div id="result" class="result" hidden><span class="eyebrow">RUNDE BEENDET</span><h2 id="result-title"></h2><p id="result-detail"></p><button id="again">Neu aufstellen ↗</button></div><div class="arena-corner">RIVAL ARENA <span> / </span> LIVE</div></div>
+      <div class="scoreboard"><div class="score-team"><span class="team-badge red">R</span><div><h3>Du · Rot</h3><p id="red-types"></p></div><strong id="red-count">60</strong></div><div class="score-center"><span id="conversions">0</span><small>ÜBERNAHMEN</small></div><div class="score-team"><span class="team-badge blue">B</span><div><h3 id="opponent-heading">PC · Blau</h3><p id="blue-types"></p></div><strong id="blue-count">60</strong></div></div>
+      <div class="population"><div id="red-bar"></div></div><div class="population-labels"><span id="red-percent">50 %</span><span>ANTEIL AM SPIELFELD</span><span id="blue-percent">50 %</span></div>
+      <div class="explanation"><span>↳</span><p><strong>Aufstellen → Vormarsch → Chaos.</strong> Beide Armeen marschieren gerade aufeinander zu. Der erste Feindkontakt löst das Chaos aus. Treffen sie sich nicht, beginnt es an der gegenüberliegenden Feldkante. Bei gegnerischen Teams übernimmt der Verlierer Farbe und Symbol des Gewinners. Gleiche Teams oder gleiche Symbole prallen nur ab. Gewinnt ein Team, endet die Runde. Ohne mögliche Übernahme gibt es ein Patt.</p></div>
+    </section>
+  </div><footer><span>Ein kleines Experiment mit großen Kettenreaktionen.</span><span>ROT × BLAU / V.03</span></footer>
+</main><div id="impulse-cursor" hidden role="img" aria-label="Impuls bereit"><svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true"><circle class="cursor-track" cx="23" cy="23" r="18"/><circle id="cursor-progress" cx="23" cy="23" r="18" pathLength="100"/></svg><span></span></div><script src="simulation.js"></script><script src="network.js"></script><script src="app.js"></script>
+</body></html>
+
+

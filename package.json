@@ -1,0 +1,15 @@
+{
+  "name": "rival-arena",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node test.cjs && node multiplayer.test.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "8.21.3"
+  }
+}
