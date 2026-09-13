@@ -15,7 +15,7 @@ npm start
 
 ## Spielen
 
-- Je Geschwader Truppentyp und Anteil an der Armee einstellen.
+- Immer eine Stein-, eine Schere- und eine Papierformation; die Anteile an der Armee bleiben einstellbar. Auch der PC verwendet genau diese drei Typen.
 - Frontmodus einschalten und eine Linie ziehen: Breite, Drehung und Marschrichtung folgen der Linie. Die Tiefe ergibt sich aus der Truppenzahl. Formationen dürfen die eigene Zone nicht verlassen oder sich überlappen.
 - Im Gefecht stößt ein Klick nahe Truppen beider Teams radial weg. Der Ring am Mauszeiger zeigt den Cooldown von 1,25 realen Sekunden.
 - Stein schlägt Schere, Schere schlägt Papier, Papier schlägt Stein. Der Verlierer übernimmt Team und Symbol des Gewinners. Gleiche Teams oder Symbole werden nicht umgewandelt.

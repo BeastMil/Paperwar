@@ -140,7 +140,7 @@
   function computerPlan(random=Math.random){
     const weights=[1+random(),1+random(),1+random()],sum=weights.reduce((a,b)=>a+b,0);
     const p=weights.map(w=>Math.floor(w/sum*100));p[2]=100-p[0]-p[1];
-    return p.map((percent,i)=>({x:12+i*196,y:20+Math.floor(random()*40),w:182,h:312,type:TYPES[Math.floor(random()*3)],percent}));
+    return p.map((percent,i)=>({x:12+i*196,y:20+Math.floor(random()*40),w:182,h:312,type:TYPES[i],percent}));
   }
   function verticalFormation(player,computer,total,random=Math.random){
     const sim=new Simulation([[0,0,0],[0,0,0]],600,800,random);

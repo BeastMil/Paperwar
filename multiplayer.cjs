@@ -14,6 +14,7 @@ function cleanPlan(input){
     if(!Number.isInteger(result.count)||result.count<1||result.count>100||Math.abs(result.spacingX-9.75)>1e-6||Math.abs(result.angle)>Math.PI*2)throw Error('Ungültige Truppenanzahl oder Abstände.');
     return result;
   });
+  if(new Set(groups.map(g=>g.type)).size!==3)throw Error('Eine Stein-, eine Schere- und eine Papierformation erforderlich.');
   const error=Rival.validatePlan(groups,TOTAL);if(error)throw Error(error);
   return groups;
 }

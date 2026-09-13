@@ -1,6 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
 const net=window.Multiplayer;
+$('setup-tempo').hidden=net.active;$('combat-tempo').hidden=net.active;
 let cursorInside=false,networkApplying=false,networkSignature='';
 const ownTeam=()=>net.active?net.seat:0, teamColor=t=>t===0?'#f27f76':'#78b1ff', teamName=t=>t===0?'Rot':'Blau';
 const teamLabels=()=>[0,1].map(t=>(t===ownTeam()?'Du':net.active?'Freund':'PC')+' · '+teamName(t));
@@ -18,14 +19,14 @@ function renderSetup(){
  const used=groups.reduce((n,g)=>n+g.count,0),sum=used/total*100,numbers=Rival.allocate(groups,total),g=groups[selected];
  $('army-total').textContent=used+' / '+total+' Truppen';$('reserve').textContent=(total-used)+' freie Truppen · '+(100-sum).toFixed(1)+' %';
  $('squad-list').replaceChildren();groups.forEach((g,i)=>{const b=document.createElement('button');b.type='button';b.className='squad-row'+(i===selected?' active':'');b.textContent=(i+1)+'. '+symbols[g.type]+' · '+(g.count/total*100).toFixed(1)+' % · '+numbers[i]+' Truppen';b.disabled=!planning;b.onclick=()=>{selected=i;renderSetup();};$('squad-list').append(b);});
- $('selected-lane').textContent=g?'GESCHWADER '+(selected+1):'NEUES RECHTECK AUFZIEHEN';
- $('troop-type').value=g?.type||'rock';$('troop-count').value=(g.count/total*100).toFixed(1);
+ $('selected-lane').textContent='GESCHWADER '+(selected+1)+' · '+symbols[g.type];
+ $('troop-count').value=(g.count/total*100).toFixed(1);
  $('actual-count').textContent=numbers[selected]+' Truppen · '+(g.count/total*100).toFixed(1)+' % · '+Math.floor(g.w/(g.spacingX||26)+1e-8)+' breit × '+Math.ceil(g.count/Math.floor(g.w/(g.spacingX||26)+1e-8))+' tief · '+Math.round((g.angle||0)*180/Math.PI)+'°';
- for(const id of ['troop-type','troop-count'])$(id).disabled=!planning||!g;
+ for(const id of ['troop-count'])$(id).disabled=!planning||!g;
  for(const id of ['army-size','place-front'])$(id).disabled=!planning;
  $('battle').disabled=!planning;$('reset').disabled=planning;
  $('error').textContent=planning?Rival.validatePlan(groups,total):'';
- if(net.active){$('army-size').disabled=true;$('speed').disabled=true;$('combat-speed').disabled=true;$('battle').textContent=net.ready?'Bereitschaft zurücknehmen':'Bereit für die Schlacht';$('battle').disabled=!planning||!net.joined;for(const id of ['troop-type','troop-count','place-front'])$(id).disabled=!planning||net.ready;for(const b of $('squad-list').children)b.disabled=!planning||net.ready;}
+ if(net.active){$('army-size').disabled=true;$('speed').disabled=true;$('combat-speed').disabled=true;$('battle').textContent=net.ready?'Bereitschaft zurücknehmen':'Bereit für die Schlacht';$('battle').disabled=!planning||!net.joined;for(const id of ['troop-count','place-front'])$(id).disabled=!planning||net.ready;for(const b of $('squad-list').children)b.disabled=!planning||net.ready;}
 }
 function prepare(){if(net.active&&!networkApplying){net.send({type:!planning&&!sim.result?'surrender':'reset'});return;}planning=true;paused=false;gesture=null;accumulator=0;$('result').hidden=true;rebuild();}
 function startBattle(e){e.preventDefault();if(!planning)return;const error=Rival.validatePlan(groups,total);if(error){$('error').textContent=error;return;}if(net.active){if(net.ready){net.send({type:'unready'});return;}sessionStorage.setItem('rival-plan-'+net.room,JSON.stringify(groups));net.send({type:'ready',groups});return;}computer=Rival.computerPlan();compact(computer);sim=Rival.verticalFormation(groups,computer,total);Rival.fitBattle(sim,canvas.clientWidth/canvas.clientHeight);planning=false;paused=false;accumulator=0;last=performance.now();renderSetup();updateStats();}
@@ -85,7 +86,7 @@ $('army-size').addEventListener('change',()=>{
  for(let i=0;i<3;i++)if(!sizeGroup(i,groups[i].count)){groups=old;total=oldTotal;$('army-size').value=total;break;}
  rebuild();
 });
-$('troop-type').addEventListener('change',()=>{groups[selected].type=$('troop-type').value;rebuild();});
+
 $('place-front').onclick=()=>{frontMode=!frontMode;$('place-front').textContent=frontMode?'↔ Frontmodus aktiv · Ausschalten':'↔ Frontmodus einschalten';$('place-front').setAttribute('aria-pressed',String(frontMode));};
 $('settings').addEventListener('submit',startBattle);$('reset').onclick=prepare;$('again').onclick=prepare;
 $('return-plan').onclick=prepare;
@@ -207,7 +208,7 @@ $('invite').onclick=async()=>{try{if(net.active)await net.share();else await net
 if(net.active){
  $('opponent-heading').textContent='Freund · Blau';$('opponent-setup').textContent='Freund · obere Hälfte';$('opponent-hint').textContent='Die Aufstellung deines Freundes bleibt bis zum gemeinsamen Start verborgen. Aufgeben beendet die Schlacht als Niederlage. Danach wechseln beide gemeinsam zurück zur Aufstellung.';
  $('invite').textContent='Einladungslink kopieren';$('room-link').hidden=false;$('room-link').value=location.origin+'/?room='+encodeURIComponent(net.room);$('solo-link').hidden=false;
- const saved=sessionStorage.getItem('rival-plan-'+net.room);if(saved){try{const plan=JSON.parse(saved);if(Array.isArray(plan)&&plan.length===3&&!Rival.validatePlan(plan,100)){groups=plan;rebuild();}}catch{}}
+ const saved=sessionStorage.getItem('rival-plan-'+net.room);if(saved){try{const stored=JSON.parse(saved);const plan=Array.isArray(stored)?stored.map((g,i)=>({...g,type:Rival.TYPES[i]})):stored;if(Array.isArray(plan)&&plan.length===3&&!Rival.validatePlan(plan,100)){groups=plan;rebuild();}}catch{}}
  net.onChange=message=>{$('room-status').textContent=message;if(!net.connected&&!planning)paused=true;renderSetup();};
  net.onState=message=>{
   net.rematch=message.rematch;

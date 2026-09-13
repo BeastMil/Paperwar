@@ -4,6 +4,8 @@ const {WebSocket}=require('ws');
 const {Room,cleanPlan,createBattle}=require('./multiplayer.cjs');
 const plan=[{x:15,y:470,w:58.5,h:156,spacingX:9.75,angle:0,type:'rock',count:34},{x:215,y:500,w:58.5,h:156,spacingX:9.75,angle:.1,type:'scissors',count:33},{x:415,y:470,w:58.5,h:156,spacingX:9.75,angle:0,type:'paper',count:33}];
 assert.equal(cleanPlan(plan).length,3);
+assert.throws(()=>cleanPlan(plan.map(g=>({...g,type:'rock'}))),/Stein/);
+assert.throws(()=>cleanPlan(plan.map((g,i)=>({...g,type:i===2?'rock':g.type}))),/Stein/);
 assert.throws(()=>cleanPlan(plan.map(g=>({...g,count:100}))));
 assert.throws(()=>cleanPlan(plan.map(g=>({...g,spacingX:1}))));
 const battle=createBattle([plan,plan]);assert.equal(battle.agents.length,200);

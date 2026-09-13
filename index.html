@@ -19,12 +19,11 @@
         <div class="field-label">Verteilt <output id="army-total"></output></div><div id="squad-list"></div>
         <p class="hint" id="reserve"></p>
         <div class="divider"></div><p class="eyebrow" id="selected-lane">GESCHWADER</p>
-        <label class="field-label" for="troop-type">Truppentyp</label><select id="troop-type"><option value="rock">⬡ Stein</option><option value="scissors">✂ Schere</option><option value="paper">▤ Papier</option></select>
         <label class="field-label" for="troop-count">Anteil der Gesamttruppen (%)</label><input id="troop-count" type="range" min="1" max="100" step="1" value="34">
         <p class="hint" id="actual-count"></p><button id="place-front" type="button" class="secondary">↔ Frontmodus einschalten</button>
         
         <div class="divider"></div><p id="opponent-setup" class="field-label blue-text">PC · obere Hälfte</p><p class="hint">Im Gefecht: Klicken stößt nahe Truppen beider Teams weg. 1,25 reale Sekunden Cooldown, unabhängig vom Tempo. Während Pause ist der Impuls gesperrt.</p><p id="opponent-hint" class="hint">Verborgene Zufallsaufstellung, gleiche Gesamtstärke wie du. Wird erst beim Schlachtstart sichtbar.</p>
-        <div class="divider"></div><label class="field-label" for="speed">Simulationstempo <output id="speed-out">1×</output></label><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><div class="range-labels"><span>Gemütlich</span><span>Turbulent</span></div>
+        <div id="setup-tempo"><div class="divider"></div><label class="field-label" for="speed">Simulationstempo <output id="speed-out">1×</output></label><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"><div class="range-labels"><span>Gemütlich</span><span>Turbulent</span></div></div>
         <p id="error" role="alert"></p><button class="primary" id="battle" type="submit">⚔ Schlacht starten</button><button id="reset" class="secondary" type="button">↶ Zurück zur Aufstellung</button>
       </form>
     </aside>
@@ -33,7 +32,7 @@
 
       <div id="combat-teams"></div>
       <div class="combat-summary"><span>Übernahmen</span><strong id="combat-conversions">0</strong></div>
-      <label class="field-label" for="combat-speed">Tempo <output id="combat-speed-out">1×</output></label><input id="combat-speed" type="range" min="0.25" max="3" step="0.25" value="1">
+      <div id="combat-tempo"><label class="field-label" for="combat-speed">Tempo <output id="combat-speed-out">1×</output></label><input id="combat-speed" type="range" min="0.25" max="3" step="0.25" value="1"></div>
       <button id="return-plan" class="secondary" type="button">↶ Zurück zur Aufstellung</button>
     </aside>
     <section class="simulation">
