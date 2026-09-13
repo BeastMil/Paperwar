@@ -1,35 +1,39 @@
 'use strict';
 const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
 const net=window.Multiplayer;
-$('setup-tempo').hidden=net.active;$('combat-tempo').hidden=net.active;
+document.body.classList.add('planning');
+$('combat-tempo').hidden=net.active;
+let timelineKey='';
 let cursorInside=false,networkApplying=false,networkSignature='';
 const ownTeam=()=>net.active?net.seat:0, teamColor=t=>t===0?'#f27f76':'#78b1ff', teamName=t=>t===0?'Rot':'Blau';
 const teamLabels=()=>[0,1].map(t=>(t===ownTeam()?'Du':net.active?'Freund':'PC')+' · '+teamName(t));
 const symbols={rock:'⬡ Stein',scissors:'✂ Schere',paper:'▤ Papier'};
 let groups=[{x:15,y:470,w:156,h:156,type:'rock',count:34},{x:215,y:500,w:156,h:156,type:'scissors',count:33},{x:415,y:470,w:156,h:156,type:'paper',count:33}];
-let computer=Rival.computerPlan(),selected=0,total=100,planning=true,sim,paused=false,last=performance.now(),accumulator=0,lastStats=0,gesture=null,frontMode=false;
+let computer=Rival.computerPlan(),selected=0,total=100,planning=true,sim,paused=false,last=performance.now(),accumulator=0,lastStats=0,gesture=null;
 function compact(list){
  const ratio=net.active?1600/600:Math.max(.2,canvas.clientWidth/canvas.clientHeight*800/600),spacing=26/ratio;
  for(const g of list){if(Math.abs((g.spacingX||0)-spacing)<1e-8)continue;const cols=Math.max(1,Math.floor(g.w/(g.spacingX||26)+1e-8));g.spacingX=spacing;g.w=Math.min(600,cols*spacing);g.x=Math.min(g.x,600-g.w);}
 }
 function rebuild(){compact(groups);compact(computer);sim=Rival.verticalFormation(groups,computer,total);renderSetup();updateStats();}
 function renderSetup(){
- $('setup-panel').hidden=!planning;$('combat-panel').hidden=planning;
+ document.body.classList.toggle('planning',planning);
+ $('setup-panel').hidden=!planning;$('combat-panel').hidden=planning;$('return-plan').hidden=planning;
+ $('planning-options').hidden=!planning;$('options-hint').textContent=net.active?(net.settingsLocked?'Für diesen Raum festgelegt':net.seat===0?'Für beide Spieler · gesperrt ab der ersten Bereitschaft':'Der Gastgeber legt die Optionen fest'):'Truppenstärke vor der Schlacht · Tempo jederzeit änderbar';
  $('combat-speed').value=$('speed').value;$('combat-speed-out').textContent=$('speed').value+'×';
  const used=groups.reduce((n,g)=>n+g.count,0),sum=used/total*100,numbers=Rival.allocate(groups,total),g=groups[selected];
- $('army-total').textContent=used+' / '+total+' Truppen';$('reserve').textContent=(total-used)+' freie Truppen · '+(100-sum).toFixed(1)+' %';
- $('squad-list').replaceChildren();groups.forEach((g,i)=>{const b=document.createElement('button');b.type='button';b.className='squad-row'+(i===selected?' active':'');b.textContent=(i+1)+'. '+symbols[g.type]+' · '+(g.count/total*100).toFixed(1)+' % · '+numbers[i]+' Truppen';b.disabled=!planning;b.onclick=()=>{selected=i;renderSetup();};$('squad-list').append(b);});
+ $('army-total').textContent=used+' / '+total+' Truppen';$('reserve').textContent=used<total?'Noch '+(total-used)+' Truppen nicht platziert · '+(100-sum).toFixed(1)+' % frei':'Alle '+total+' Truppen platziert';$('reserve').classList.toggle('unassigned',used<total);
+ $('squad-list').replaceChildren();groups.forEach((g,i)=>{const b=document.createElement('button');b.type='button';b.className='squad-row'+(i===selected?' active':'');b.textContent=symbols[g.type]+' · '+(g.count/total*100).toFixed(0)+' %';b.setAttribute('aria-label','Formation '+symbols[g.type]+' auswählen');b.disabled=!planning;b.onclick=()=>{selected=i;renderSetup();};$('squad-list').append(b);});
  $('selected-lane').textContent='GESCHWADER '+(selected+1)+' · '+symbols[g.type];
- $('troop-count').value=(g.count/total*100).toFixed(1);
+ const available=total-used+g.count;$('troop-count').min=1;$('troop-count').step=1;$('troop-count').max=available;$('troop-count').value=g.count;$('troop-count').setAttribute('aria-valuetext',(g.count/total*100).toFixed(1)+' Prozent · '+g.count+' Truppen');$('formation-percent').textContent=(g.count/total*100).toFixed(1)+' %';
  $('actual-count').textContent=numbers[selected]+' Truppen · '+(g.count/total*100).toFixed(1)+' % · '+Math.floor(g.w/(g.spacingX||26)+1e-8)+' breit × '+Math.ceil(g.count/Math.floor(g.w/(g.spacingX||26)+1e-8))+' tief · '+Math.round((g.angle||0)*180/Math.PI)+'°';
  for(const id of ['troop-count'])$(id).disabled=!planning||!g;
- for(const id of ['army-size','place-front'])$(id).disabled=!planning;
+ for(const id of ['army-size'])$(id).disabled=!planning;
  $('battle').disabled=!planning;$('reset').disabled=planning;
- $('error').textContent=planning?Rival.validatePlan(groups,total):'';
- if(net.active){$('army-size').disabled=true;$('speed').disabled=true;$('combat-speed').disabled=true;$('battle').textContent=net.ready?'Bereitschaft zurücknehmen':'Bereit für die Schlacht';$('battle').disabled=!planning||!net.joined;for(const id of ['troop-count','place-front'])$(id).disabled=!planning||net.ready;for(const b of $('squad-list').children)b.disabled=!planning||net.ready;}
+ $('error').textContent=planning&&used===total?Rival.validatePlan(groups,total):'';$('battle').disabled=!planning||used!==total;
+ if(net.active){const locked=!net.joined||net.seat!==0||net.settingsLocked;$('army-size').disabled=locked;$('speed').disabled=locked;$('combat-speed').disabled=true;$('battle').textContent=net.ready?'Bereitschaft zurücknehmen':'Bereit für die Schlacht';$('battle').disabled=!planning||!net.joined||(!net.ready&&used!==total);for(const id of ['troop-count'])$(id).disabled=!planning||net.ready;for(const b of $('squad-list').children)b.disabled=!planning||net.ready;}
 }
-function prepare(){if(net.active&&!networkApplying){net.send({type:!planning&&!sim.result?'surrender':'reset'});return;}planning=true;paused=false;gesture=null;accumulator=0;$('result').hidden=true;rebuild();}
-function startBattle(e){e.preventDefault();if(!planning)return;const error=Rival.validatePlan(groups,total);if(error){$('error').textContent=error;return;}if(net.active){if(net.ready){net.send({type:'unready'});return;}sessionStorage.setItem('rival-plan-'+net.room,JSON.stringify(groups));net.send({type:'ready',groups});return;}computer=Rival.computerPlan();compact(computer);sim=Rival.verticalFormation(groups,computer,total);Rival.fitBattle(sim,canvas.clientWidth/canvas.clientHeight);planning=false;paused=false;accumulator=0;last=performance.now();renderSetup();updateStats();}
+function prepare(){if(net.active&&!networkApplying){net.send({type:!planning&&!sim.result?'surrender':'reset'});return;}planning=true;timelineKey='';document.body.classList.add('planning');paused=false;gesture=null;accumulator=0;$('result').hidden=true;rebuild();}
+function startBattle(e){e.preventDefault();if(!planning)return;const error=Rival.validatePlan(groups,total);if(error){$('error').textContent=error;return;}if(net.active){if(net.ready){net.send({type:'unready'});return;}sessionStorage.setItem('rival-plan-'+net.room,JSON.stringify(groups));net.send({type:'ready',groups});return;}computer=Rival.computerPlan(Math.random,total,Math.max(.2,canvas.clientWidth/canvas.clientHeight*800/600));compact(computer);sim=Rival.verticalFormation(groups,computer,total);planning=false;renderSetup();Rival.fitBattle(sim,canvas.clientWidth/canvas.clientHeight);paused=false;accumulator=0;last=performance.now();renderSetup();updateStats();}
 function point(e){const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(600,(e.clientX-r.left)*600/r.width)),y:Math.max(420,Math.min(800,(e.clientY-r.top)*800/r.height))};}
 function followCursor(e){cursorInside=true;$('impulse-cursor').style.left=e.clientX+'px';$('impulse-cursor').style.top=e.clientY+'px';}
 canvas.addEventListener('pointerenter',followCursor);canvas.addEventListener('pointermove',followCursor);canvas.addEventListener('pointerleave',()=>{cursorInside=false;});
@@ -44,7 +48,7 @@ canvas.addEventListener('pointerdown',e=>{
  }
  if(e.button!==0||(net.active&&net.ready))return;const r=canvas.getBoundingClientRect();if((e.clientY-r.top)*800/r.height<420)return;
  const p=point(e);const hit=groups.findIndex(g=>Rival.contains(g,p));
- if(hit>=0&&!frontMode){selected=hit;const g=groups[hit];gesture={mode:'move',start:p,original:{...g}};renderSetup();}
+ if(hit>=0){selected=hit;const g=groups[hit];gesture={mode:'move',start:p,original:{...g}};renderSetup();}
  else {gesture={mode:'front',start:p,original:{...groups[selected]}};}
  canvas.setPointerCapture(e.pointerId);e.preventDefault();
 });
@@ -73,12 +77,13 @@ function sizeGroup(index,count){
 }
 $('troop-count').addEventListener('input',()=>{
  const available=total-groups.reduce((n,g,i)=>n+(i===selected?0:g.count),0);
- const requested=Math.max(1,Math.round(total*Number($('troop-count').value)/100));
+ const requested=Math.max(1,Math.round(Number($('troop-count').value)));
  const count=Math.min(available,requested);
  if(!sizeGroup(selected,count)){renderSetup();$('error').textContent='Für diese Formation fehlt Platz. Verschiebe ein Geschwader.';return;}
  rebuild();if(requested>available)$('error').textContent='Keine freien Truppen. Reduziere zuerst den Anteil eines anderen Geschwaders.';
 });
 $('army-size').addEventListener('change',()=>{
+ if(net.active){net.send({type:'configure',settings:{total:Number($('army-size').value),speed:Number($('speed').value)}});return;}
  const n=Number($('army-size').value);if(!Number.isInteger(n)||n<10||n>150){$('army-size').value=total;return;}
  const old=groups.map(g=>({...g})),oldTotal=total;
  const counts=Rival.allocate(groups.map(g=>({percent:g.count/total*100})),n);
@@ -87,12 +92,11 @@ $('army-size').addEventListener('change',()=>{
  rebuild();
 });
 
-$('place-front').onclick=()=>{frontMode=!frontMode;$('place-front').textContent=frontMode?'↔ Frontmodus aktiv · Ausschalten':'↔ Frontmodus einschalten';$('place-front').setAttribute('aria-pressed',String(frontMode));};
 $('settings').addEventListener('submit',startBattle);$('reset').onclick=prepare;$('again').onclick=prepare;
-$('return-plan').onclick=prepare;
+$('return-plan').onclick=()=>{if(!net.active&&!planning&&!sim.result){sim.result='blue';sim.surrenderedBy=0;sim.recordHistory(true);updateStats();}else prepare();};
 $('combat-speed').oninput=()=>{$('speed').value=$('combat-speed').value;$('speed-out').textContent=$('speed').value+'×';$('combat-speed-out').textContent=$('speed').value+'×';};
 $('pause').onclick=()=>{paused=!paused;accumulator=0;updateStats();};
-$('speed').oninput=()=>{$('speed-out').textContent=$('speed').value+'×';};
+$('speed').oninput=()=>{$('speed-out').textContent=$('speed').value+'×';if(net.active)net.send({type:'configure',settings:{total:Number($('army-size').value),speed:Number($('speed').value)}});};
 document.addEventListener('visibilitychange',()=>{last=performance.now();accumulator=0;});
 let previousTroops=null;
 function updateBattleEvents(counts){
@@ -108,6 +112,54 @@ function updateBattleEvents(counts){
   event.append(icon,text);feed.append(event);
  }));
  previousTroops=counts.map(t=>[...t]);
+}
+function renderHistory(){
+ const history=sim.history||[],key=(sim.deathEvents?.length||0)+':'+sim.result+':'+history.length+':'+(history.at(-1)?.time||0);
+ if(key===timelineKey)return;timelineKey=key;
+ const source=history.length?history:[{time:0,counts:[0,0,0,0,0,0]}];
+ const duration=source.at(-1).time,points=source.length===1?[source[0],{...source[0],time:duration||1}]:source;
+ const colors=['#a64043','#e67470','#ffc0a4','#b8dfff','#6aa9ed','#315f9a'];
+ const names=['Rot · Stein','Rot · Schere','Rot · Papier','Blau · Stein','Blau · Schere','Blau · Papier'];
+ const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 600 180');svg.setAttribute('role','img');svg.setAttribute('aria-label','Gestapelter Verlauf der sechs Truppentypen. Zusammen immer 100 Prozent. Dauer '+duration.toFixed(1)+' Simulationssekunden.');
+ const make=(tag,attrs,text)=>{const e=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text!==undefined)e.textContent=text;svg.append(e);return e;};
+ const x=p=>94+456*p.time/(duration||1),y=(p,n)=>152-140*p.counts.slice(0,n).reduce((a,b)=>a+b,0)/Math.max(1,p.counts.reduce((a,b)=>a+b,0));
+ // Shared, bounded curves keep adjacent areas flush without overshooting the data.
+ const boundary=(samples,n,command='M')=>samples.reduce((path,p,i)=>{
+  if(!i)return command+x(p)+','+y(p,n);
+  const previous=samples[i-1],dx=(x(p)-x(previous))/3;
+  return path+' C'+(x(previous)+dx)+','+y(previous,n)+' '+(x(p)-dx)+','+y(p,n)+' '+x(p)+','+y(p,n);
+ },'');
+ for(let i=0;i<6;i++){
+  make('path',{d:boundary(points,i)+boundary([...points].reverse(),i+1,'L')+' Z',fill:colors[i]});
+ }
+ for(let i=1;i<6;i++)make('path',{d:boundary(points,i),fill:'none',stroke:colors[i],'stroke-width':1,'vector-effect':'non-scaling-stroke','stroke-linejoin':'round'});
+ make('rect',{x:94,y:12,width:456,height:140,fill:'none',stroke:'#ffffff45'});
+ make('line',{x1:94,y1:82,x2:550,y2:82,stroke:'#ffffff50','stroke-dasharray':'4 5'});
+ for(const [value,py]of [['100%',16],['50%',86],['0%',152]])make('text',{x:558,y:py,'text-anchor':'start',fill:'#a9b4a5','font-size':10},value);
+ const format=t=>Math.floor(t/60)+':'+Math.floor(t%60).toString().padStart(2,'0');
+ for(const [t,px]of [[0,94],[duration/2,322],[duration,550]])make('text',{x:px,y:173,'text-anchor':px===94?'start':px===550?'end':'middle',fill:'#a9b4a5','font-size':11},format(t));
+ const labels=names.map((name,i)=>({name,i,target:(y(points[0],i)+y(points[0],i+1))/2})).sort((a,b)=>a.target-b.target);
+ labels.forEach((label,i)=>label.position=Math.max(label.target,i?labels[i-1].position+14:18));
+ for(let i=labels.length-1;i>=0;i--)labels[i].position=Math.min(labels[i].position,i===labels.length-1?146:labels[i+1].position-14);
+ for(const label of labels){
+  if(Math.abs(label.position-label.target)>3)make('line',{x1:86,y1:label.position,x2:93,y2:label.target,stroke:colors[label.i],'stroke-width':.7});
+  const text=make('text',{x:82,y:label.position,'dominant-baseline':'middle','text-anchor':'end',fill:colors[label.i],'font-size':12,'font-weight':600},['Stein','Schere','Papier'][label.i%3]);
+  const title=document.createElementNS(ns,'title');title.textContent=label.name;text.append(title);
+ }
+ const markers=[];
+ for(const event of sim.deathEvents||[]){
+  const index=event.team*3+Rival.TYPES.indexOf(event.type),px=x(event),anchor=y(event,index);
+  let py=Math.max(27,Math.min(134,anchor));
+  for(const candidate of [py,27,55,83,111,134])if(!markers.some(m=>Math.abs(m.x-px)<23&&Math.abs(m.y-candidate)<26)){py=candidate;break;}
+  markers.push({x:px,y:py});const color=teamColor(event.team);
+  make('line',{x1:px,y1:anchor,x2:px,y2:py,stroke:color,'stroke-width':1,'stroke-dasharray':'2 2'});
+  make('circle',{cx:px,cy:anchor,r:2,fill:color});
+  const marker=make('g',{transform:'translate('+px+' '+py+')',tabindex:0,role:'img','aria-label':teamName(event.team)+' verliert '+symbols[event.type]+' bei '+event.time.toFixed(1)+' Sekunden'});
+  const title=document.createElementNS(ns,'title');title.textContent=teamName(event.team)+' hat '+['keinen Stein','keine Schere','kein Papier'][index%3]+' mehr · '+event.time.toFixed(1)+' s';marker.append(title);
+  const stone=document.createElementNS(ns,'path');stone.setAttribute('d','M -9 11 V -3 A 9 9 0 0 1 9 -3 V 11 Z');stone.setAttribute('fill',event.team===0?'#482a29':'#233b56');stone.setAttribute('stroke',color);stone.setAttribute('stroke-width','1.5');marker.append(stone);
+  const symbol=document.createElementNS(ns,'text');symbol.setAttribute('x','0');symbol.setAttribute('y','4');symbol.setAttribute('text-anchor','middle');symbol.setAttribute('fill',color);symbol.setAttribute('font-size','13');symbol.textContent=['⬡','✂','▤'][index%3];marker.append(symbol);
+ }
+ $('history-chart').replaceChildren(svg);
 }
 function updateStats() {
  const labels=teamLabels();$('red-heading').textContent=labels[0];$('opponent-heading').textContent=labels[1];
@@ -138,7 +190,7 @@ function updateStats() {
   ['red','blue'].forEach((team,i) => {
     $(team+'-count').textContent = totals[i];
     $(team+'-types').textContent = planning && i!==ownTeam() ? 'Aufstellung verborgen' : `⬡ ${c[i][0]}  ✂ ${c[i][1]}  ▤ ${c[i][2]}`;
-    $(team+'-percent').textContent = Math.round(totals[i] / Math.max(1,sim.agents.length) * 100) + ' %';
+    const redPercent=Math.round(totals[0]/Math.max(1,sim.agents.length)*100);$(team+'-percent').textContent=(i===0?redPercent:100-redPercent)+' %';
   });
   $('red-bar').style.width = totals[0] / Math.max(1,sim.agents.length) * 100 + '%';
   $('conversions').textContent = sim.conversions;
@@ -148,17 +200,33 @@ function updateStats() {
   $('pause').disabled = net.active || planning || Boolean(sim.result);
   $('status').textContent = planning ? 'Aufstellung · Drei Geschwader frei platzieren' : sim.result ? 'Runde beendet' : paused ? 'Simulation pausiert' : sim.phase === 'march' ? 'Vormarsch · Fronten nähern sich' : 'Chaos · Jeder Kontakt zählt';
   $('status-dot').style.background = paused || sim.result ? '#899180' : '#d0ed8a';
+  if(!net.active)$('return-plan').textContent=sim.result?'↶ Zurück zur Aufstellung':'⚑ Aufgeben';
   if(net.active){const waiting=Boolean(net.rematch?.[net.seat]);$('return-plan').textContent=sim.result?(waiting?'Warte auf den Gegner …':'↶ Zurück zur Aufstellung'):'⚑ Aufgeben';$('return-plan').disabled=waiting;$('again').textContent=waiting?'Warte auf den Gegner …':'Zurück zur Aufstellung';$('again').disabled=waiting;}
   if (sim.result) {
-    $('result').hidden = false;
+    $('result').hidden = false;renderHistory();
     const won=sim.result===(ownTeam()===0?'red':'blue');
-    $('result-title').textContent = sim.result === 'draw' ? 'Unentschieden.' : net.active?(won?'You Won':'You Lose'):`Team ${sim.result === 'red' ? 'Rot' : 'Blau'} gewinnt.`;
+    $('result-title').textContent = sim.result === 'draw' ? 'Unentschieden.' : sim.surrenderedBy===ownTeam()?'You Lose':net.active?(won?'You Won':'You Lose'):`Team ${sim.result === 'red' ? 'Rot' : 'Blau'} gewinnt.`;
     $('result-title').style.color = sim.result === 'draw' ? '#d0ed8a' : sim.result === 'red' ? '#f27f76' : '#78b1ff';
-    $('result-detail').textContent = net.active?(sim.surrenderedBy!==undefined?(sim.surrenderedBy===ownTeam()?'Du hast aufgegeben.':'Dein Gegner hat aufgegeben.'):(sim.result==='draw'?'Keine Übernahme mehr möglich.':won?'Du hast die Schlacht gewonnen.':'Du hast die Schlacht verloren.'))+' '+(net.rematch?.[1-net.seat]?'Dein Gegner möchte neu aufstellen.':'Zur Aufstellung geht es weiter, sobald beide bereit sind.') : sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
+    $('result-detail').textContent = !net.active&&sim.surrenderedBy===0?'Du hast aufgegeben.':net.active?(sim.surrenderedBy!==undefined?(sim.surrenderedBy===ownTeam()?'Du hast aufgegeben.':'Dein Gegner hat aufgegeben.'):(sim.result==='draw'?'Keine Übernahme mehr möglich.':won?'Du hast die Schlacht gewonnen.':'Du hast die Schlacht verloren.'))+' '+(net.rematch?.[1-net.seat]?'Dein Gegner möchte neu aufstellen.':'Zur Aufstellung geht es weiter, sobald beide bereit sind.') : sim.result === 'draw' ? 'Beide Teams haben nur dasselbe Symbol. Keine Übernahme mehr möglich.' : `${sim.agents.length} Verbündete · ${sim.conversions} Übernahmen · ${Math.floor(sim.elapsed)} Sekunden`;
   }
 }
 
-function draw(){
+let sliderDragging=false;
+$('troop-count').addEventListener('pointerdown',()=>sliderDragging=true);
+window.addEventListener('pointerup',()=>sliderDragging=false);
+window.addEventListener('pointercancel',()=>sliderDragging=false);
+function positionFormationControls(){
+ if(!planning)return;
+ const w=canvas.clientWidth,h=canvas.clientHeight,control=$('formation-control');
+ control.hidden=Boolean(gesture)||(net.active&&net.ready);
+ groups.forEach((g,i)=>{const pts=Rival.corners(g),x=pts.reduce((n,p)=>n+p.x,0)/4*w/600,y=Math.min(...pts.map(p=>p.y))*h/800,b=$('squad-list').children[i];if(b){b.style.left=Math.max(75,Math.min(w-75,x))+'px';b.style.top=Math.max(0,y-31)+'px';}});
+ if(sliderDragging)return;
+ const pts=Rival.corners(groups[selected]),cx=pts.reduce((n,p)=>n+p.x,0)/4*w/600,bottom=Math.max(...pts.map(p=>p.y))*h/800;
+ control.style.left=Math.max(8,Math.min(w-control.offsetWidth-8,cx-control.offsetWidth/2))+'px';
+ control.style.top=Math.max(h*.52,Math.min(h-control.offsetHeight-8,bottom+9))+'px';
+ control.style.setProperty('--formation-color',teamColor(ownTeam()));
+}
+function draw(){positionFormationControls();
  const r=canvas.getBoundingClientRect(),dpr=devicePixelRatio||1;
  if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -169,12 +237,12 @@ function draw(){
  if(planning){
  ctx.fillStyle=teamColor(1-ownTeam())+'09';ctx.fillRect(0,0,600,380);ctx.fillStyle=teamColor(ownTeam())+'09';ctx.fillRect(0,420,600,380);
  ctx.strokeStyle='#576349';ctx.setLineDash([5,7]);ctx.strokeRect(1,1,598,378);ctx.strokeRect(1,420,598,379);ctx.setLineDash([]);
- ctx.font='12px Arial';ctx.fillStyle=teamColor(1-ownTeam());textAt(teamLabels()[1-ownTeam()].toUpperCase()+' · AUFSTELLUNG VERBORGEN',15,20);ctx.fillStyle=teamColor(ownTeam());textAt('DEINE AUFSTELLUNGSZONE · '+teamName(ownTeam()).toUpperCase(),15,440);
- ctx.fillStyle='#849080';ctx.font='16px Arial';ctx.textAlign='center';textAt('?',300,174);textAt('Der Gegner zeigt sich beim Schlachtstart.',300,206);ctx.textAlign='left';
+ ctx.font='12px Arial';ctx.fillStyle=teamColor(1-ownTeam());textAt(teamLabels()[1-ownTeam()].toUpperCase()+' · AUFSTELLUNG VERBORGEN',15,20);ctx.fillStyle=teamColor(ownTeam());textAt('DEINE AUFSTELLUNGSZONE · '+teamName(ownTeam()).toUpperCase(),15,420);
+ 
  groups.forEach((g,i)=>{
  const pts=Rival.corners(g);ctx.beginPath();pts.forEach((p,k)=>k?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=i===selected?'#d0ed8a15':teamColor(ownTeam())+'08';ctx.fill();ctx.strokeStyle=i===selected?'#d0ed8a':teamColor(ownTeam())+'80';ctx.stroke();
  const front=Rival.localPoint(g,g.w/2,0),tip=Rival.localPoint(g,g.w/2,-32);ctx.beginPath();ctx.moveTo(front.x,front.y);ctx.lineTo(tip.x,tip.y);const l=Rival.localPoint(g,g.w/2-5,-22),r=Rival.localPoint(g,g.w/2+5,-22);ctx.moveTo(l.x,l.y);ctx.lineTo(tip.x,tip.y);ctx.lineTo(r.x,r.y);ctx.stroke();
- ctx.fillStyle='#edf0e4';textAt((i+1)+' · '+(g.count/total*100).toFixed(1)+' %',pts[0].x,pts[0].y-5);
+ 
  });
  if(gesture?.mode==='new'){const g=gesture.rect;ctx.strokeStyle='#d0ed8a';ctx.strokeRect(g.x,g.y,g.w,g.h);}
  }
@@ -228,18 +296,29 @@ if(net.active){
  net.onChange=message=>{$('room-status').textContent=message;if(!net.connected&&!planning)paused=true;renderSetup();};
  net.onState=message=>{
   net.rematch=message.rematch;
+  net.settingsLocked=Boolean(message.settingsLocked);
+  if(message.settings){
+   $('speed').value=message.settings.speed;$('speed-out').textContent=message.settings.speed+'×';
+   if(total!==message.settings.total){
+    total=message.settings.total;$('army-size').value=total;
+    const counts=Rival.allocate([{percent:34},{percent:33},{percent:33}],total);
+    groups=counts.map((count,i)=>({x:15+i*200,y:470,w:58.5,h:Math.ceil(count/6)*26,spacingX:9.75,angle:0,type:Rival.TYPES[i],count}));
+    try{const saved=JSON.parse(sessionStorage.getItem('rival-plan-'+net.room));if(Array.isArray(saved)&&saved.length===3&&new Set(saved.map(g=>g.type)).size===3&&!Rival.validatePlan(saved,total))groups=saved;}catch{}
+    if(planning)rebuild();
+   }
+  }
   const notice=$('ready-notice');notice.hidden=message.phase!=='setup';notice.classList.toggle('opponent-ready',Boolean(message.ready[1-net.seat]));notice.style.setProperty('--opponent-color',teamColor(1-ownTeam()));
   notice.textContent=!net.peer?'Gegner noch nicht verbunden':message.ready[1-net.seat]?'✓ Gegner ist bereit!'+(net.ready?'':' Stelle deine Truppen auf und bestätige deine Bereitschaft.'):'Gegner stellt seine Truppen auf …';
-  $('room-status').textContent='Du bist '+teamName(ownTeam())+' · '+(message.phase==='battle'?(message.result?'Runde beendet':!message.connected.every(Boolean)?'Verbindung unterbrochen · Schlacht pausiert':'Gemeinsame Schlacht · 100 Truppen je Spieler'):!net.peer?'Warte auf deinen Freund …':net.ready?'Du bist bereit · warte auf deinen Freund':message.ready[1-net.seat]?'Dein Freund ist bereit. Stelle deine Truppen auf.':'Beide verbunden · stellt eure Truppen auf.');
+  $('room-status').textContent='Du bist '+teamName(ownTeam())+' · '+(message.phase==='battle'?(message.result?'Runde beendet':!message.connected.every(Boolean)?'Verbindung unterbrochen · Schlacht pausiert':'Gemeinsame Schlacht · '+total+' Truppen je Spieler'):!net.peer?'Warte auf deinen Freund …':net.ready?'Du bist bereit · warte auf deinen Freund':message.ready[1-net.seat]?'Dein Freund ist bereit. Stelle deine Truppen auf.':'Beide verbunden · stellt eure Truppen auf.');
   if(message.phase==='setup'){
    if(!planning){networkApplying=true;prepare();networkApplying=false;}
-   const signature=JSON.stringify([message.ready,message.connected]);if(signature!==networkSignature){renderSetup();networkSignature=signature;}return;
+   const signature=JSON.stringify([message.ready,message.connected,message.settings,message.settingsLocked]);if(signature!==networkSignature){renderSetup();networkSignature=signature;}return;
   }
   const first=planning;networkSignature='';planning=false;paused=!message.connected.every(Boolean);
   const localNow=performance.now()/1000;
   const flip=a=>net.seat?{...a,x:message.width-a.x,y:message.height-a.y,vx:-a.vx,vy:-a.vy}:a;
   sim.width=message.width;sim.height=message.height;sim.agents=message.agents.map(flip);if(first||!net.displayAgents||net.displayAgents.length!==sim.agents.length)net.displayAgents=sim.agents.map(a=>({...a}));sim.elapsed=message.elapsed;sim.phase=message.battlePhase;sim.conversions=message.conversions;
-  sim.result=message.result;sim.surrenderedBy=message.surrenderedBy;net.rematch=message.rematch;
+  sim.result=message.result;sim.history=message.history||[];sim.deathEvents=message.deathEvents||[];sim.surrenderedBy=message.surrenderedBy;net.rematch=message.rematch;
   sim.pulseReadyAt=localNow+message.cooldown;sim.pulseWaves=message.waves.map(w=>({...w,x:net.seat?message.width-w.x:w.x,y:net.seat?message.height-w.y:w.y,createdAt:localNow-w.age}));
   if(first){$('result').hidden=true;renderSetup();}updateStats();
  };

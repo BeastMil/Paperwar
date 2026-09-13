@@ -55,7 +55,7 @@ for(let n=0;n<50;n++){
  const pc=computerPlan(random),v=verticalFormation(player,pc,150,random);
  assert.equal(v.agents.length,300);assert(v.agents.filter(a=>a.team===0).every(a=>a.y>420));assert(v.agents.filter(a=>a.team===1).every(a=>a.y<380));
  const positions=v.agents.map(a=>({x:a.x,y:a.y}));v.step(1/120);
- v.agents.forEach((a,i)=>{assert.equal(a.x,positions[i].x);assert(a.team===0?a.y<positions[i].y:a.y>positions[i].y);});
+ v.agents.forEach((a,i)=>{if(a.team===0)assert.equal(a.x,positions[i].x);assert(a.team===0?a.y<positions[i].y:a.y>positions[i].y);});
 }
 console.log('Passed vertical zones, percentage rounding, overlap/capacity/budget rejection, PC troop totals and vertical march.');
 const {fitBattle}=require('./simulation.js');
@@ -125,3 +125,27 @@ for(const angle of [0,.6])for(const count of [1,4,8,12]){
  }
 }
 console.log('Passed centered full, partial and single-unit ranks in straight and rotated formations.');
+const pcOrders=new Set(),pcWidths=new Set();
+for(const ratio of [.8,1,1.5,2.7,4])for(const total of [10,75,100,150])for(let sample=0;sample<30;sample++){
+ const R=require('./simulation.js'),plan=R.computerPlan(random,total,ratio);
+ assert.equal(plan.reduce((n,g)=>n+g.percent,0),100);assert(plan.every(g=>g.percent>=20&&g.percent<=40));assert.equal(new Set(plan.map(g=>g.type)).size,3);
+ for(const g of plan){assert(Math.abs(g.angle)<=.18);assert(R.corners(g).every(p=>p.x>=0&&p.x<=600&&p.y>=0&&p.y<=380));}
+ for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)assert(!R.overlaps(plan[i],plan[j]));
+ const troops=R.verticalFormation([],plan,total,random).agents;assert.equal(troops.length,total);assert(troops.every(a=>a.vy>60));
+ pcOrders.add(plan.map(g=>g.type).join(','));pcWidths.add(plan[0].w);
+}
+assert.equal(pcOrders.size,6);assert(pcWidths.size>5);
+console.log('Passed 600 randomized PC plans: 20–40% shares, all type orders, varied widths, zone bounds, no overlap, complete armies and forward heading.');
+const tracked=new Simulation([[2,1,1],[1,2,1]],1000,800);tracked.phase='march';tracked.result=null;tracked.recordHistory(true);
+tracked.agents[0].team=1;tracked.elapsed=.5;tracked.recordHistory();
+assert.deepEqual(tracked.history[0].counts,[2,1,1,1,2,1]);assert.deepEqual(tracked.history[1].counts,[1,1,1,2,2,1]);
+for(let i=1;i<=3000;i++){tracked.elapsed=i;tracked.recordHistory();}
+tracked.elapsed=3000.125;tracked.recordHistory(true);assert(tracked.history.length<=600);assert.equal(tracked.history[0].time,0);assert.equal(tracked.history.at(-1).time,3000.125);
+assert(tracked.history.every(p=>p.counts.reduce((a,b)=>a+b,0)===8));assert(tracked.history.every((p,i)=>!i||p.time>tracked.history[i-1].time));
+console.log('Passed six-series history: exact team/type counts, conserved totals, bounded long-game storage, start and final samples.');
+const extinct=new Simulation([[1,1,1],[1,1,1]],1000,800);extinct.recordHistory(true);assert.equal(extinct.deathEvents.length,0);
+extinct.agents.find(a=>a.team===0&&a.type==='rock').team=1;extinct.agents.find(a=>a.team===1&&a.type==='paper').team=0;extinct.elapsed=.125;extinct.recordHistory();
+assert.deepEqual(extinct.deathEvents.map(e=>[e.team,e.type,e.time]),[[0,'rock',.125],[1,'paper',.125]]);assert.equal(extinct.history.at(-1).time,.125);
+extinct.recordHistory(true);assert.equal(extinct.deathEvents.length,2);
+for(let i=1;i<2000;i++){extinct.elapsed=i;extinct.recordHistory();}assert.equal(extinct.deathEvents[0].time,.125);assert.equal(extinct.deathEvents.length,2);
+console.log('Passed exact extinction markers: simultaneous losses, no duplicates, event samples and persistence after history reduction.');

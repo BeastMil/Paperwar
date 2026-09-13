@@ -32,6 +32,20 @@
       }));
       this.result = outcome(this.agents);
     }
+    recordHistory(force=false){
+      this.history=this.history||[];this.historyInterval=this.historyInterval||.5;
+      const last=this.history.at(-1);
+      const counts=[0,0,0,0,0,0];for(const a of this.agents)counts[a.team*3+TYPES.indexOf(a.type)]++;
+      this.deathEvents=this.deathEvents||[];
+      if(this.previousHistoryCounts)counts.forEach((count,i)=>{
+        if(count===0&&this.previousHistoryCounts[i]>0){this.deathEvents.push({time:this.elapsed,team:Math.floor(i/3),type:TYPES[i%3],counts:[...counts]});force=true;}
+      });
+      this.previousHistoryCounts=[...counts];
+      if(!force&&last&&this.elapsed-last.time<this.historyInterval)return;
+      const point={time:this.elapsed,counts};
+      if(last&&last.time===this.elapsed)this.history[this.history.length-1]=point;else this.history.push(point);
+      if(this.history.length>600){this.history=this.history.filter((p,i)=>i%2===0||i===this.history.length-1);this.historyInterval*=2;}
+    }
     pulse(x,y,now=performance.now()/1000) {
       if(this.result||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>this.width||y>this.height||now<(this.pulseReadyAt||0))return false;
       const radius=120,strength=210;
@@ -52,6 +66,7 @@
     }
     step(dt) {
       if (this.result) return;
+      if(!this.history?.length)this.recordHistory(true);
       this.elapsed += dt;
       const radius = 12;
       for (const a of this.agents) {
@@ -89,6 +104,7 @@
         }
       }
       if(this.phase!=='march')this.result = outcome(this.agents);
+      this.recordHistory(Boolean(this.result));
     }
   }
   function formation(squads, random = Math.random) {
@@ -137,10 +153,21 @@
     }
     return '';
   }
-  function computerPlan(random=Math.random){
-    const weights=[1+random(),1+random(),1+random()],sum=weights.reduce((a,b)=>a+b,0);
-    const p=weights.map(w=>Math.floor(w/sum*100));p[2]=100-p[0]-p[1];
-    return p.map((percent,i)=>({x:12+i*196,y:20+Math.floor(random()*40),w:182,h:312,type:TYPES[i],percent}));
+  function computerPlan(random=Math.random,total=150,ratio=1){
+    const integer=(lo,hi)=>lo+Math.floor(random()*(hi-lo+1));
+    const first=integer(20,40),second=integer(Math.max(20,60-first),Math.min(40,80-first));
+    const percentages=[first,second,100-first-second],types=[...TYPES];
+    for(let i=2;i>0;i--){const j=integer(0,i);[types[i],types[j]]=[types[j],types[i]];const k=integer(0,i);[percentages[i],percentages[k]]=[percentages[k],percentages[i]];}
+    const counts=allocate(percentages.map(percent=>({percent})),total),spacing=26/ratio;
+    return percentages.map((percent,i)=>{
+      const maxCols=Math.max(1,Math.min(counts[i],Math.floor(180/spacing))),minCols=Math.min(maxCols,Math.max(1,Math.ceil(counts[i]/11),Math.floor(maxCols*.5)));
+      const cols=integer(minCols,maxCols),g={x:0,y:0,w:cols*spacing,h:Math.ceil(counts[i]/cols)*26,spacingX:spacing,angle:(random()-.5)*.36,type:types[i],percent};
+      let points=corners(g),bounds=()=>({left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))}),b=bounds();
+      for(let n=0;n<12&&(b.right-b.left>184||b.bottom-b.top>350);n++){g.angle*=.5;points=corners(g);b=bounds();}
+      g.x=i*200+8+random()*Math.max(0,184-(b.right-b.left))-b.left;
+      g.y=12+random()*Math.max(0,350-(b.bottom-b.top))-b.top;
+      return g;
+    });
   }
   function verticalFormation(player,computer,total,random=Math.random){
     const sim=new Simulation([[0,0,0],[0,0,0]],600,800,random);
@@ -181,4 +208,5 @@
   if (typeof module !== 'undefined') module.exports = api;
   else root.Rival = api;
 })(typeof window !== 'undefined' ? window : this);
+
 

@@ -26,7 +26,8 @@ wss.on('connection',(ws,req)=>{
    const msg=JSON.parse(raw.toString());
    if(msg.type==='join'&&!room){const candidate=rooms.get(msg.room);if(!candidate)throw Error('Raum nicht gefunden oder abgelaufen. Erstelle einen neuen Raum.');const joined=candidate.connect(ws,msg.token);room=candidate;seat=joined.seat;clearTimeout(joinDeadline);send({type:'joined',room:room.id,...joined});send(room.snapshot(seat,performance.now()/1000));return;}
    if(!room)throw Error('Bitte zuerst einem Raum beitreten.');room.updated=Date.now();
-   if(msg.type==='ready')room.ready(seat,msg.groups);
+   if(msg.type==='configure')room.configure(seat,msg.settings);
+   else if(msg.type==='ready')room.ready(seat,msg.groups);
    else if(msg.type==='unready'&&room.phase==='setup')room.seats[seat].plan=null;
    else if(msg.type==='surrender')room.surrender(seat);
    else if(msg.type==='reset')room.returnToSetup(seat);
@@ -38,7 +39,7 @@ wss.on('connection',(ws,req)=>{
 let last=performance.now(),acc=0,lastBroadcast=0;
 const timer=setInterval(()=>{
  const now=performance.now();acc+=Math.min((now-last)/1000,.1)*.5;last=now;
- while(acc>=1/120){for(const r of rooms.values())if(r.phase==='battle'&&r.connected())r.sim.step(1/120);acc-=1/120;}
+ while(acc>=1/120){for(const r of rooms.values())if(r.phase==='battle'&&r.connected()&&!r.sim.result){r.stepAccumulator+=r.settings.speed/120;while(r.stepAccumulator>=1/120&&!r.sim.result){r.sim.step(1/120);r.stepAccumulator-=1/120;}}acc-=1/120;}
  if(now-lastBroadcast<50)return;lastBroadcast=now;
  for(const r of rooms.values())for(let seat=0;seat<2;seat++){const ws=r.seats[seat]?.socket;if(ws?.readyState===1&&ws.bufferedAmount<200000)ws.send(JSON.stringify(r.snapshot(seat,now/1000)));}
 },1000/60);

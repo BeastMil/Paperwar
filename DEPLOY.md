@@ -25,15 +25,16 @@ Nach erfolgreichem Deploy die von Render angezeigte HTTPS-Adresse öffnen. **Fre
 
 ## Erste Version
 
-- Zwei Spieler pro Raum, 100 Truppen pro Seite, gemeinsames festes 1×-Tempo.
-- Jeder sieht seine eigene Armee unten als Rot; der Gegner wird als Blau dargestellt.
+- Zwei Spieler pro Raum. Der Gastgeber legt Truppenstärke und Tempo vor der ersten Bereitschaft fest; danach bleiben sie für den Raum gesperrt.
+- Der Gastgeber bleibt Rot, der Gast Blau. Jeder sieht seine eigene Armee unten; beim Gast wird das Feld um 180° gedreht.
 - Der Server berechnet Kollisionen, Umwandlungen und getrennte Impuls-Cooldowns.
 - Bei Verbindungsabbruch pausiert das Gefecht. Wiederverbindung im selben Browser-Tab wird automatisch versucht. Nach rund einer Minute wird der verlassene Platz freigegeben und die Planung zurückgesetzt.
 - Räume liegen im Arbeitsspeicher. Serverneustarts/Deployments verlieren laufende Räume. Ein neuer Einladungslink startet einen neuen Raum.
-- Zurück zur Aufstellung setzt die Runde für beide zurück.
+- Aufgeben beendet die Schlacht als Niederlage. Nach dem Ergebnis bestätigen beide die Rückkehr zur Aufstellung.
 - Kostenlose Render-Dienste können nach Inaktivität schlafen; der erste Aufruf kann verzögert sein. Den Link erst teilen, wenn die Seite geladen ist.
 
 ## Lokal prüfen
 
 `npm install`, danach `npm test` und `npm start`. Browser: `http://localhost:4173`.
 Zum Testen zwei unabhängige Tabs öffnen; Einladungslink verwenden. Kein Konto im Spiel erforderlich.
+
